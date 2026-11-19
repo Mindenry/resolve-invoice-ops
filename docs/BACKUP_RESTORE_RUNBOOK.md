@@ -79,3 +79,24 @@ Never rotate `SECRET_KEY`/`CREDENTIAL_ENCRYPTION_KEY` without a documented rotat
 - Keep the source backup until the restored environment passes login, upload, AI and approval checks.
 - Test a restore quarterly and record the outcome.
 - Backups contain personal/financial data; apply retention and deletion policy.
+
+## 5. Verified evidence (2026-11-19)
+
+**Backup:** `backups/compose-20261119-205946`
+
+- Snapshot counts: 4 organizations, 9 users, 14 vendors, 23 purchase orders, 106 invoices,
+  17 documents, 48 cases, 149 exceptions, 741 audit rows, 16 chunks, **65 S3 objects**.
+- `manifest.json` records the dump SHA-256.
+
+**Restore:** database `resolve_restore_hardening_20261119_210117`, bucket
+`resolve-documents-restore-hardening`.
+
+- Row counts, 16 vector rows at dimension **1024**, index `ix_document_chunks_embedding_vec` (HNSW)
+  and a nearest-neighbour query were verified.
+- 65 objects were uploaded; one object's SHA-256 matched the backup mirror byte-for-byte.
+- The live database was not overwritten.
+
+**Backup freshness metric:** each successful run writes
+`var/metrics/resolve_backup.prom` (LF endings), collected by node-exporter as
+`resolve_backup_last_success_timestamp_seconds`. The `ResolveBackupStale` alert fires when no backup
+has succeeded for 26 hours.

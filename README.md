@@ -60,36 +60,35 @@ approvals, integrations, workflows, AI evaluation, analytics, audit, settings an
 
 ## Verification status
 
-Independently verified in this repository (see
-[`docs/FINAL_VERIFICATION_REPORT.md`](docs/FINAL_VERIFICATION_REPORT.md) and
-[`docs/ONE_RUN_SETUP_REPORT.md`](docs/ONE_RUN_SETUP_REPORT.md)):
+Verified on this machine against the Docker Compose deployment (see
+[`docs/FINAL_PRODUCTION_HARDENING_REPORT.md`](docs/FINAL_PRODUCTION_HARDENING_REPORT.md)):
 
-- **134 backend tests pass on PostgreSQL 18.6**; 133 pass on SQLite (one PostgreSQL-only test skips).
-- Native Windows deployment is running as auto-start services: PostgreSQL 18.6 + **pgvector 0.8.1**
-  (HNSW `Index Scan` verified), Redis/Memurai, Celery worker/beat, Mailpit, **Ollama** (Qwen2.5 7B +
-  BGE-M3), FastAPI and nginx.
-- **Docker Compose is verified after the Windows reboot**: PostgreSQL 16 + pgvector, Redis, SeaweedFS
-  S3, API, worker, beat, nginx, Mailpit, n8n and optional Prometheus/Grafana all start healthy. The
-  Compose demo seed wrote 42 objects to SeaweedFS (65 after workflow/OCR verification uploads); upload,
-  processing and download work; backup and
-  restore were verified into a new database and bucket with all 42 SHA-256 hashes matching.
-- **Compose E2E: 10/10 Playwright tests pass against `https://127.0.0.1:8180`**, including a real
-  Ollama investigation. Recreating the API container no longer causes nginx 502s (DNS re-resolution
-  is configured).
-- A live 27-step workflow (upload → OCR/extraction → exceptions → **real local AI investigation** →
-  approval → SMTP execution → audit → analytics) was verified through the LAN URL.
-- Real OCR (Tesseract 5.4, English + Thai) verified on PNG, JPG and scanned PDF; PDF, DOCX, XLSX and
-  CSV extraction verified.
-- Frontend: typecheck, lint, Vitest, production build and **10 Playwright tests** pass against the
-  nginx/LAN deployment, including all routes, pagination, permissions, error/retry, Thai locale and
-  dark theme.
-- Backup/restore verified into an isolated database, including vector rows.
+- **HTTPS** on `https://localhost:8180` and `https://192.168.1.107:8180` with a local mkcert CA
+  (the IP is a SAN), TLS 1.2/1.3, HSTS, Secure/HttpOnly/SameSite=Lax cookies and a loopback-only HTTP
+  redirect. **Playwright 10/10 over HTTPS.**
+- **Security:** demo passwords rotated (the retired password returns 401), self-registration
+  disabled, RBAC and tenant isolation enforced, self-approval blocked, login rate limiting active.
+  `scripts/verify-security.py` passes **16/16**.
+- **Backend:** **136 passed + 1 skipped** on PostgreSQL and SQLite (`cd apps/api; pytest`).
+- **Frontend:** typecheck, lint (0 errors), Vitest 6/6, production build.
+- **Full workflow:** **28 steps** over HTTPS: vendor, PO, upload, OCR, extraction, exceptions, case,
+  real Ollama investigation with validated citations, proposal, approval, execution, audit and
+  analytics.
+- **n8n:** five active workflows (A-E) with HMAC verification, Redis-backed idempotency, duplicate
+  suppression, retry visibility and Mailpit delivery; real outbox events (`case.created`,
+  `case.escalated`, `document.failed`) delivered with HTTP 200.
+- **Observability:** Prometheus **13/13 targets up** with 20 alert rules, Alertmanager to Mailpit
+  (controlled and real database-down alerts delivered), four Grafana dashboards provisioned from Git.
+- **Data:** PostgreSQL 16.16 + pgvector 0.8.7, `vector(1024)`, HNSW index and a real
+  nearest-neighbour query; SeaweedFS S3 with authenticated path-style access.
+- **Backup/restore:** `backups/compose-20261119-205946` (65 objects) restored into an isolated
+  database and bucket; counts, vectors, HNSW, retrieval and an object SHA-256 matched.
+- **Restart persistence:** after `docker compose restart`, all services return, data is intact,
+  n8n workflows stay active, Grafana dashboards and certificates still work, and login succeeds.
 
-**Not verified here:** a physical macOS client (LAN access was tested from Windows to the LAN IP;
-macOS commands are documented), n8n workflow execution with real credentials, and Prometheus/Grafana
-dashboards with production traffic (the containers and health endpoints were verified). External AI
-provider credentials were not available. Managed S3/R2/B2 was not tested with real cloud credentials;
-Compose uses the verified SeaweedFS S3 path and production guidance still recommends managed storage.
+**Not verified here:** a physical macOS client (trust steps documented, Safari untested), external
+DNS/domain, external SMTP (Mailpit only), managed cloud S3, and a hardened Linux Docker Engine
+(Docker Desktop is used with a watchdog task). See `docs/KNOWN_LIMITATIONS.md`.
 
 ## One-run Windows deployment
 

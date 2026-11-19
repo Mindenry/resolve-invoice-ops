@@ -9,11 +9,10 @@ from __future__ import annotations
 
 import secrets
 
-from sqlalchemy import select
-
 from app.core.security import hash_password
 from app.db.session import SessionLocal
 from app.models.identity import Membership, Organization, User
+from sqlalchemy import select
 
 FIXTURE_SLUG = "e2e-other-cilg8f"
 

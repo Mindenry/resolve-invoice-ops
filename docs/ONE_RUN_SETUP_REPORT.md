@@ -1,5 +1,7 @@
 # RESOLVE — One-run setup and deployment report
 
+> **Historical document.** For the current verified state see `docs/FINAL_PRODUCTION_HARDENING_REPORT.md`.
+
 > **Post-reboot update:** Docker Compose is now the verified primary deployment on
 > `https://192.168.1.107:8180` with PostgreSQL 16 + pgvector 0.8.7, SeaweedFS S3, local Ollama, and the
 > full workflow. The native services remain as a **localhost rollback** (`127.0.0.1:8090`). See

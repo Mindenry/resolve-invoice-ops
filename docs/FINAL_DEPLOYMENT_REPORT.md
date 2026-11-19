@@ -1,5 +1,7 @@
 # RESOLVE — Final deployment report
 
+> **Historical document.** For the current verified state see `docs/FINAL_PRODUCTION_HARDENING_REPORT.md`.
+
 **Date:** 2026-11-19 (Asia/Bangkok), post-reboot verification
 **Host:** `KERNELOS-PC`, Windows 10 IoT Enterprise LTSC 22H2 (19045), i5-14500, 31.7 GB RAM,
 RTX 4070 SUPER 12 GB, LAN `192.168.1.107/24`. Docker VM: 8 GB RAM / 4 CPUs.

@@ -117,7 +117,27 @@ Post-reboot Docker automation log: `var\logs\post-reboot-docker.log`.
 
 ## 9. Access and security
 
-- LAN URL: `https://192.168.1.107:8180` (HTTP, evaluation only).
+- LAN URL: `https://192.168.1.107:8180` (valid mkcert certificate; TLS 1.2/1.3, HSTS).
 - Firewall: `RESOLVE Docker Web (TCP 8180)`, Private, LocalSubnet. The old 8090 LAN rule is disabled.
-- For real data: enable HTTPS (private CA or trusted reverse proxy), set `ENV=production`, remove demo
-  data/accounts, and finish the items in `docs/KNOWN_LIMITATIONS.md`.
+- Management UIs are loopback only: n8n `127.0.0.1:5679`, Grafana `127.0.0.1:3101`, Prometheus
+  `127.0.0.1:9190`, Alertmanager `127.0.0.1:9193`, Mailpit `127.0.0.1:8125`.
+- For real data: replace the local CA with a managed certificate, remove demo data/accounts, and
+  finish the items in `docs/KNOWN_LIMITATIONS.md`.
+
+## 10. Monitoring and automation
+
+```powershell
+# Stack health, targets and alerts
+curl.exe --ssl-no-revoke https://192.168.1.107:8180/health
+curl.exe http://127.0.0.1:9190/api/v1/targets
+curl.exe http://127.0.0.1:9190/api/v1/alerts
+
+# n8n executions are visible in the loopback UI; workflows A-E are documented in
+# docs/N8N_RESOLVE_AUTOMATION.md
+```
+
+- Alerts go to Mailpit (`ops@resolve.local`); see `docs/OBSERVABILITY_RUNBOOK.md`.
+- Backup freshness is exported as `resolve_backup_last_success_timestamp_seconds`; if it is older
+  than 26 hours the `ResolveBackupStale` alert fires.
+- The Docker watchdog task `RESOLVE-Docker-Watchdog` runs every minute. Create
+  `var/docker-watchdog.disabled` before an intentional stop so it does not restart Docker.

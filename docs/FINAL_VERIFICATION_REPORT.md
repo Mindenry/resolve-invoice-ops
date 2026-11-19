@@ -1,5 +1,7 @@
 # RESOLVE — Final independent verification report
 
+> **Historical document.** For the current verified state see `docs/FINAL_PRODUCTION_HARDENING_REPORT.md`.
+
 **Date:** 2026-11-19
 **Scope:** independent audit of the existing repository at `E:\Code\AI project`, defect fixing, and
 verification against real PostgreSQL, real OCR, a real Celery worker, live HTTP APIs and a real

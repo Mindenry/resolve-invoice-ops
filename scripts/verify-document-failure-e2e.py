@@ -59,10 +59,13 @@ def main() -> int:
         events = client.get(f"{BASE}/integrations/events", headers=headers, params={"limit": 100})
         events.raise_for_status()
         for item in events.json():
-            if item["direction"] == "OUTBOUND" and item["event_type"] == "document.failed":
-                if (item.get("response_status") or 0) < 400:
-                    delivered = item
-                    break
+            if (
+                item["direction"] == "OUTBOUND"
+                and item["event_type"] == "document.failed"
+                and (item.get("response_status") or 0) < 400
+            ):
+                delivered = item
+                break
         if delivered:
             break
         time.sleep(10)

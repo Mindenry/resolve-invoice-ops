@@ -1,67 +1,76 @@
 # Known limitations
 
-Statuses are honest and current as of 2026-11-19 post-reboot verification.
+Status is current as of 2026-11-19, after the final hardening pass. Evidence for every VERIFIED item
+is in `docs/FINAL_PRODUCTION_HARDENING_REPORT.md`.
 
 ## VERIFIED
 
-- Docker Compose primary stack with API, worker, beat, web, PostgreSQL 16.16, pgvector 0.8.7,
-  Redis 7, SeaweedFS S3 4.54, Mailpit 1.34.0, n8n 2.48.6, Prometheus and Grafana.
-- `vector(1024)`, JSON backfill, HNSW index and a real `Index Scan`.
+- Docker Compose primary stack (18 services): API, worker, beat, web, PostgreSQL 16.16, pgvector
+  0.8.7, Redis 7, SeaweedFS 4.54, Mailpit 1.34.0, n8n 2.48.6, Prometheus, Alertmanager, Grafana and
+  six exporters.
+- HTTPS on 8180 with a local mkcert CA (SANs include the LAN IP), TLS 1.2/1.3, HSTS, Secure/HttpOnly/
+  SameSite=Lax cookies; Playwright 10/10 over HTTPS.
+- Rotated demo credentials; the retired password is rejected; self-registration disabled in
+  production; login UI contains no demo password.
+- RBAC, tenant isolation, self-approval prevention, approval/execution separation and login rate
+  limiting; 16/16 security checks.
+- `vector(1024)`, JSON backfill, HNSW index and a real nearest-neighbour query.
 - Container→Ollama access; real Qwen2.5 7B investigation with validated evidence.
-- OCR in the container (Tesseract 5.4, eng/tha), confidence 0.955 on a live PNG; 7 fields extracted.
-- S3 upload/download and Compose backup/restore with SHA-256 checks (42/42 hashes matched).
-- Full 27-step workflow through nginx (approval, SMTP, execution, audit, analytics).
-- Docker backup/restore into separate DB/bucket including vectors.
-- Playwright 10/10 against the Docker LAN URL.
-- Backend: **134 passed on PostgreSQL, 133 passed + 1 skip on SQLite**; Ruff clean.
-- Only TCP 8180 exposed to the LAN; all internal services loopback-only.
+- OCR in the container (Tesseract 5.4, eng/tha) verified on live documents.
+- SeaweedFS S3 upload/download; backup/restore with SHA-256 checks.
+- 28-step workflow over HTTPS (approval, SMTP, execution, audit, analytics).
+- Backup `compose-20261119-205946` restored into an isolated DB and bucket (65 objects).
+- n8n workflows A–E active, with HMAC, Redis-backed idempotency, duplicate suppression and Mailpit
+  delivery; real outbox events delivered.
+- Prometheus 13/13 targets up with 20 rules; Alertmanager → Mailpit verified; four Grafana dashboards.
+- Backend: **136 passed + 1 skip** (PostgreSQL and SQLite); frontend typecheck/lint/Vitest/build.
+- Git baseline: commit `1d7478a`, tag `v1.0.0-rc.1`; working tree clean; secret scan clean.
+- Only TCP 8180 exposed to the LAN; all internal services loopback or Docker-internal.
 
 ## PARTIALLY VERIFIED
 
 - **macOS client:** no physical Mac was available. The LAN URL, firewall, login/refresh, upload,
-  document download, AI investigation and approval were exercised from Windows against
-  `192.168.1.107:8180`. Safari was not tested. Use `docs/LAN_ACCESS_GUIDE.md`.
-- **n8n:** service is healthy (`/healthz` 200), but no RESOLVE workflows/credentials were imported or
-  executed. Templates exist under `infrastructure/n8n/workflows`.
-- **Monitoring:** Prometheus/Grafana are running and healthy, but RESOLVE-specific dashboards, alerts
-  and exporters (Postgres/Redis) are not provisioned.
-- **Celery beat:** running and schedules observed; not run over a long multi-hour window.
+  download, AI investigation and approval were exercised from Windows against
+  `192.168.1.107:8180` over HTTPS. Safari/Keychain trust was not tested; the CA and commands are in
+  `docs/HTTPS_LAN_SETUP.md`.
+- **Celery beat:** schedules observed working, but not over a multi-hour window.
 - **AI quality:** a 7B local model can produce imprecise root-cause wording. Citations are validated;
-  invalid ones are stored/flagged. External provider quality/cost is unverified.
+  invalid ones are stored/flagged. External provider quality and cost are unverified.
+- **Backup scheduling:** scripts, verification and a Prometheus freshness metric exist; confirm or
+  install the daily Windows scheduled task for unattended backups.
+- **Docker Desktop:** the engine occasionally exits. A watchdog runs every minute and Compose has
+  restart policies, but this is a workstation runtime, not a server runtime.
+- **Rate limiting:** the Docker userland proxy rewrites client IPs to the gateway, so LAN clients
+  share one bucket; limits still fire (429 observed). Storage is in-process memory.
 
 ## NOT VERIFIED / BLOCKED
 
-- **HTTPS on the LAN:** not configured. Current deployment is HTTP `ENV=development`; refresh cookies
-  are not `Secure`. Do not use real financial data over HTTP. A private CA/mkcert and nginx TLS are
-  required before production.
-- **Docker Desktop as a server runtime:** it is a workstation runtime and per-user. Logon tasks start
-  it through Explorer. A production server should use Docker Engine on Linux or a managed container
-  platform.
+- **Public domain / external DNS:** unavailable in this environment. HTTPS uses an IP + local CA.
+- **External SMTP:** unavailable; Mailpit is a local sink and no mail leaves the machine.
+- **Managed cloud storage (S3/R2/B2):** not tested with real cloud credentials.
 - **High availability:** PostgreSQL, Redis and SeaweedFS are single-node; no replication/failover.
-- **Malware scanning:** uploaded files are validated by type/size/ZIP guards but not virus-scanned.
-  Add ClamAV or a gateway scanner for untrusted uploads.
+- **Malware scanning:** uploads are validated by type/size/ZIP guards but not virus-scanned. Add
+  ClamAV or a gateway scanner for untrusted uploads.
 - **SSO/SAML/SCIM, field-level permissions, audit WORM:** not implemented.
-- **Git release:** repository has no commits and no configured Git identity. No commit/tag was
-  created. Working tree is intact; configure identity and review ignored files before committing.
+- **Independent penetration test:** not performed.
 
 ## Environment caveats
 
-- Docker images `prom/prometheus:latest` and `grafana/grafana:latest` remain on `latest`. Pin digests/
-  versions before long-term production.
+- Container images are pinned except where noted; re-check tags and prefer digest pinning before a
+  long-lived production deployment.
 - SeaweedFS uses a generated identity file; credentials must be backed up and rotated deliberately.
 - The pre-existing PostgreSQL service on port 5432 still listens on 0.0.0.0, but Windows Firewall has
   no allow rule; it was not modified. Do not add a LAN rule.
-- Demo accounts (`admin@example.com` etc., `the password in var/secrets/demo-credentials.txt`) and synthetic data remain. Remove/change them
-  for any non-demo use.
-- Docker `.env`, backups and runtime data are git-ignored; backups contain secrets/encryption keys and
-  must be protected.
-- No changes were made to existing native databases, uploads or backups.
+- Demo accounts and synthetic data remain (`admin@example.com` etc.; password in
+  `var/secrets/demo-credentials.txt`). Remove or re-key them for any non-demo use.
+- Docker `.env`, backups and runtime data are Git-ignored; backups contain secrets/encryption keys and
+  must be protected. Keep `N8N_ENCRYPTION_KEY` and `CREDENTIAL_ENCRYPTION_KEY` stable or encrypted
+  values become unrecoverable.
+- No existing native databases, uploads or backups were deleted or reset.
 
 ## Required before production use
 
-1. HTTPS with a trusted/private CA; `ENV=production`, `DEBUG=false`, `DEMO_MODE=false`.
-2. Replace demo users/data; strong secrets in a secret manager; rotate keys with a plan.
-3. Managed PostgreSQL with PITR, managed S3-compatible storage, managed Redis or HA.
-4. Malware scanning, centralized logs/metrics/alerts, retention/RTBF procedures.
-5. Pin all images and run on a server-grade Docker engine.
-6. Independent security review/pen test.
+See section 16 of `docs/FINAL_PRODUCTION_HARDENING_REPORT.md` for the complete pre-real-data
+checklist. The short version: real domain/certificate, real SMTP, demo data removal, malware scanning,
+managed/HA data services, server-grade Docker engine, scheduled off-host backups with restore drills,
+UAT sign-off and an independent security review.
