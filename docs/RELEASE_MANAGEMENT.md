@@ -16,7 +16,7 @@ MAJOR.MINOR.PATCH[-rc.N]
 `VERSION` holds the current version. `CHANGELOG.md` holds the history; `RELEASE_NOTES.md` holds the
 notes for the current tag.
 
-Current baseline: **1.0.0-rc.1** (tag `v1.0.0-rc.1`).
+Current baseline: **1.0.0** (tag `v1.0.0`).
 
 ## 2. Repository layout and identity
 
@@ -53,9 +53,9 @@ git diff --cached            # read it; no secrets, no dumps, no large binaries
 git commit -m "chore: establish RESOLVE verified deployment baseline"
 
 # 4. Tag the candidate
-git tag -a v1.0.0-rc.1 -m "RESOLVE v1.0.0-rc.1 - verified hardening baseline"
+git tag -a v1.0.0 -m "RESOLVE v1.0.0 - verified project closure"
 git tag --list
-git show --stat v1.0.0-rc.1
+git show --stat v1.0.0
 ```
 
 Rules:

@@ -23,7 +23,7 @@ This document separates verified capability from the remaining production requir
 | Monitoring | **READY** | 13/13 targets, 20 rules, 4 dashboards, alert delivery |
 | Backup/restore | **READY** | fresh backup + isolated restore with SHA/vector checks |
 | Restart persistence | **READY** | data, workflows, dashboards, certs, login survive restart |
-| Release management | **READY** | commit `1d7478a`, tag `v1.0.0-rc.1`, clean tree |
+| Release management | **READY** | tag `v1.0.0`, clean tree, secret scan clean |
 | Real SMTP | **BLOCKED** | no external relay; Mailpit only |
 | Public DNS/domain | **BLOCKED** | no domain; IP + local CA |
 | Malware scanning | **NOT IMPLEMENTED** | add gateway/ClamAV for untrusted files |

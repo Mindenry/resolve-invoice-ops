@@ -1,52 +1,63 @@
-# RESOLVE v1.0.0-rc.1 — Release notes
+# RESOLVE v1.0.0 — Release notes
 
-**Status:** release candidate for pre-production / controlled evaluation.
-**Baseline date:** 2026-11-19.
-**Deployment:** Docker Compose (primary) with loopback-only native Windows services as rollback.
+**Status:** project closure release. Portfolio/demo ready and verified for controlled LAN evaluation.
+**Not approved for real financial data** until the external items in `docs/KNOWN_LIMITATIONS.md` and
+section 16 of `docs/FINAL_PRODUCTION_HARDENING_REPORT.md` are closed.
+**Date:** 2026-11-19.
+**Deployment:** Docker Compose (primary); native Windows services remain a loopback-only rollback.
 
-This is a candidate, not a general-availability release. It must not receive real financial data
-until the remaining items in `docs/KNOWN_LIMITATIONS.md` and the "before real data" checklist in
-`docs/FINAL_PRODUCTION_HARDENING_REPORT.md` are closed.
+## Highlights
 
-## What works (verified on this machine)
+- HTTPS on `https://localhost:8180` and `https://192.168.1.107:8180` with a trusted local mkcert CA,
+  TLS 1.2/1.3, HSTS and secure cookies.
+- Production authentication and authorization: rotated demo credentials, disabled self-registration,
+  six roles, 47 permissions, tenant isolation, self-approval block, approval/execution separation and
+  login rate limiting.
+- Real workflow: vendor → PO → upload → OCR (Thai/English) → extraction → 10 exception rules → case →
+  local Ollama investigation with validated citations → proposal → human approval → execution → audit
+  → analytics.
+- Five active n8n workflows with HMAC verification, Redis-backed idempotency and Mailpit delivery.
+- Prometheus (13 targets), Alertmanager, and four Grafana dashboards; a controlled and a real alert
+  both delivered.
+- Verified backup and isolated restore, including `vector(1024)`, HNSW and object SHA-256.
 
-* HTTPS on `https://localhost:8180` and `https://192.168.1.107:8180` with a trusted local mkcert
-  chain, TLS 1.2/1.3, HSTS and Secure/HttpOnly/SameSite=Lax refresh cookies.
-* Production authentication: rotated demo passwords, disabled self-registration, RBAC, tenant
-  isolation, self-approval prevention, approval/execution separation and rate limiting.
-* Full operational workflow over HTTPS through real Ollama (`qwen2.5:7b-instruct` + `bge-m3`),
-  Tesseract OCR (Thai + English), pgvector retrieval, approvals, execution, audit and analytics.
-* n8n workflows A–E with HMAC validation, Redis-backed idempotency, retries and Mailpit delivery.
-* Prometheus, Alertmanager and Grafana with live metrics, 20 alert rules and four dashboards.
-* Backup to `backups/compose-20261119-205946` and restore into an isolated database and bucket,
-  including 16 pgvector rows at dimension 1024 and an HNSW index.
-* Restart persistence for data, workflows, dashboards, certificates and credentials.
+## Fixed in this release
 
-## Upgrade / install
+1. **Concurrent approval race** — two simultaneous approvals could both succeed. Decisions now use an
+   atomic conditional update; only one can win (live result: one 200, one 409). Regression test added.
+2. **Invoice detail crash** — the shared `Button` passed multiple children to Radix `Slot` when
+   `asChild` was set. Fixed and re-verified with zero app console errors.
 
-1. Copy `.env.example` to `.env` and fill every blank secret (see `docs/RELEASE_MANAGEMENT.md`).
-2. Issue the TLS certificate with mkcert (see `docs/HTTPS_LAN_SETUP.md`).
-3. `docker compose --env-file .env --profile monitoring up -d --build`
-4. Provision n8n owner, credential and workflows with the scripts in
-   `docs/N8N_RESOLVE_AUTOMATION.md`.
-5. Trust `var/certs/rootCA.pem` on each client (macOS steps included).
+## Verification at this tag
 
-## Upgrade from 0.3.0
+| Gate | Result |
+| --- | --- |
+| Backend tests | 137 passed, 1 skipped |
+| Frontend | typecheck OK, lint 0 errors, Vitest 6/6, build OK |
+| Playwright over HTTPS | 10/10 |
+| Full workflow | 28 steps |
+| Acceptance (roles + 25 edge cases) | 26/26 |
+| Security | 16/16 |
+| n8n contract | 9/9 |
+| Responsive/console | 0 overflow, 0 app console errors across 24 route/viewport checks |
+| Restart persistence | data, workflows, dashboards, certificates and login verified |
+| Backup/restore | counts, vectors, HNSW and SHA-256 verified |
 
-* Rotate all demo passwords; the old seeded password is no longer valid.
-* The API image now requires `prometheus-client` (already in `apps/api/pyproject.toml`).
-* n8n now requires `N8N_ENCRYPTION_KEY`, `N8N_OWNER_*`, `N8N_WEBHOOK_SECRET` and
-  `RESOLVE_AUTOMATION_*` in `.env`; Compose fails fast if they are missing.
-* S3 credentials and the PostgreSQL password no longer have default values in Compose.
+## Upgrade from v1.0.0-rc.1
+
+- Rebuild the API and web images (approval service and shared Button changed).
+- No schema change and no data migration are required.
+- The super administrator account is optional; provision it with
+  `scripts/provision-superadmin.py` if you want the full six-role demo.
 
 ## Known limitations at this tag
 
-No physical macOS/Safari test, no external DNS/domain, no external SMTP (Mailpit only), Docker
-Desktop rather than a Linux engine, single-node SeaweedFS (not HA), and rate limiting shares one
-bucket per published Docker port because the Docker userland proxy rewrites client IPs.
+No physical macOS/Safari test, no public domain/DNS, no external SMTP (Mailpit only), single-node data
+services, Docker Desktop rather than a Linux engine, no malware scanning, no SSO, and shared rate-limit
+buckets behind Docker's proxy. The demo workspace still contains synthetic data and must be removed
+before real use. See `portfolio/KNOWN_LIMITATIONS.md`.
 
 ## Rollback
 
-`git checkout v1.0.0-rc.1` restores the exact source baseline. Data rollback uses the backup and
-restore procedure in `docs/BACKUP_RESTORE_RUNBOOK.md`; the native Windows deployment remains a
-localhost-only fallback.
+`git checkout v1.0.0` restores this source baseline. Data rollback uses the backup/restore procedure in
+`docs/BACKUP_RESTORE_RUNBOOK.md`; the native deployment remains available on `127.0.0.1:8090`.

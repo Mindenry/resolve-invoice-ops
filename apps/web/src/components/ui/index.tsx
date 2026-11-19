@@ -53,9 +53,18 @@ export interface ButtonProps
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, asChild, loading, children, disabled, ...props }, ref) => {
-    const Comp = asChild ? Slot : "button";
+    // Slot requires exactly one React element child, so the loading spinner is
+    // only rendered for real <button> elements. Rendering `null` alongside the
+    // child (as the old ternary did) also breaks Slot.
+    if (asChild) {
+      return (
+        <Slot ref={ref} className={cn(buttonVariants({ variant, size }), className)} {...props}>
+          {children}
+        </Slot>
+      );
+    }
     return (
-      <Comp
+      <button
         ref={ref}
         className={cn(buttonVariants({ variant, size }), className)}
         disabled={disabled || loading}
@@ -63,7 +72,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       >
         {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
         {children}
-      </Comp>
+      </button>
     );
   },
 );

@@ -43,8 +43,8 @@ The current host runs the production build natively as Windows services:
 
 The native deployment is a **localhost rollback**: only TCP 8180 (Docker web) is allowed inbound
 (Private profile, `LocalSubnet`); native nginx listens on `127.0.0.1:8090`. See
-[`ONE_RUN_SETUP_REPORT.md`](ONE_RUN_SETUP_REPORT.md), [`LAN_ACCESS_GUIDE.md`](LAN_ACCESS_GUIDE.md)
-and [`PRODUCTION_READINESS.md`](PRODUCTION_READINESS.md).
+[`../ONE_RUN_SETUP_REPORT.md`](../ONE_RUN_SETUP_REPORT.md), [`../LAN_ACCESS_GUIDE.md`](../LAN_ACCESS_GUIDE.md)
+and [`../PRODUCTION_READINESS.md`](../PRODUCTION_READINESS.md).
 
 ## 2. First deployment
 
@@ -55,15 +55,15 @@ cp .env.example .env
 Edit at minimum:
 
 - `SECRET_KEY` — long random string (production startup rejects the development default)
-- `POSTGRES_PASSWORD`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `N8N_BASIC_AUTH_PASSWORD`,
-  `N8N_WEBHOOK_SECRET`
+- `POSTGRES_PASSWORD`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `N8N_ENCRYPTION_KEY`,
+  `N8N_OWNER_PASSWORD`, `N8N_WEBHOOK_SECRET`, `GRAFANA_PASSWORD`
 - `ENV=production`, `DEBUG=false`, `DEMO_MODE=false`, `SEED_DEMO=false`
 - `CORS_ORIGINS` and `FRONTEND_URL` to your real origins
 - `AI_PROVIDER`/`AI_API_KEY`/`AI_MODEL` (or Ollama settings) if AI is required
 - SMTP settings (Mailpit by default; configure a real relay for production)
-- TLS termination: put the stack behind a reverse proxy (Caddy, Traefik, nginx, load balancer) and
-  forward `X-Forwarded-Proto`; the API runs with `--proxy-headers`. Cookies become `Secure`
-  automatically when `ENV=production`.
+- TLS: the bundled nginx terminates TLS on host port 8180 with certificates in `var/certs/`
+  (`docs/HTTPS_LAN_SETUP.md`). Cookies are `Secure` in production. A reverse proxy can still be added
+  in front if required; forward `X-Forwarded-Proto` and keep `--proxy-headers`.
 
 Then:
 
@@ -83,7 +83,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 
 ## 3. Environment variables
 
-The full list is in [`.env.example`](../.env.example). Groups:
+The full list is in [`.env.example`](../../.env.example). Groups:
 
 | Group | Key variables |
 | --- | --- |
@@ -170,9 +170,9 @@ directory. Verify a restore quarterly and document the outcome.
 - Structured JSON logs are available with `LOG_JSON=true`; each request logs method, path, status,
   duration and request ID.
 - `/api/v1/analytics/ai-usage` and `/jobs` expose AI usage and background job health.
-- Optional Prometheus scrapes readiness; `infrastructure/monitoring` contains the config. Add
-  exporters (postgres, redis) as needed.
-- Alert on: failed Celery jobs, webhook failure rate, readiness failures, disk usage, approval backlog.
+- Prometheus, Alertmanager, Grafana and six exporters run in the `monitoring` profile; `/metrics`
+  exposes real HTTP and business series, 20 alert rules are loaded and four dashboards are
+  provisioned from `infrastructure/monitoring`. See `docs/OBSERVABILITY_RUNBOOK.md`.
 
 ## 7. Scaling
 
@@ -186,7 +186,7 @@ directory. Verify a restore quarterly and document the outcome.
 
 - [ ] `ENV=production`, `DEBUG=false`, `DEMO_MODE=false`, `SEED_DEMO=false`
 - [ ] Strong `SECRET_KEY`, database, S3 and n8n credentials from a secret manager
-- [ ] HTTPS terminated and forwarded correctly; CORS allowlist contains only real origins
+- [ ] HTTPS valid for every client (local CA trusted or managed certificate); CORS allowlist contains only real origins
 - [ ] PostgreSQL 16 with pgvector, managed backups and point-in-time recovery
 - [ ] Object storage lifecycle/versioning enabled; malware scanning considered
 - [ ] SMTP relay configured and SPF/DKIM aligned

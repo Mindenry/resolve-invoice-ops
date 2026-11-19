@@ -24,7 +24,7 @@ is in `docs/FINAL_PRODUCTION_HARDENING_REPORT.md`.
   delivery; real outbox events delivered.
 - Prometheus 13/13 targets up with 20 rules; Alertmanager → Mailpit verified; four Grafana dashboards.
 - Backend: **136 passed + 1 skip** (PostgreSQL and SQLite); frontend typecheck/lint/Vitest/build.
-- Git baseline: commit `1d7478a`, tag `v1.0.0-rc.1`; working tree clean; secret scan clean.
+- Git baseline: tag `v1.0.0`; working tree clean; secret scan clean.
 - Only TCP 8180 exposed to the LAN; all internal services loopback or Docker-internal.
 
 ## PARTIALLY VERIFIED

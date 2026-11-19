@@ -1,7 +1,33 @@
 # Changelog
 
-All notable changes to RESOLVE. The project uses a single pre-release line while it is being
-evaluated; dates are ISO-8601.
+All notable changes to RESOLVE. Dates are ISO-8601.
+
+## [1.0.0] — 2026-11-19
+
+### Final closure: acceptance, demo environment, portfolio, release
+
+- **Concurrency fix (real defect):** two simultaneous approvals could both succeed. Approval decisions
+  now use an atomic conditional `UPDATE ... WHERE status='PENDING'` and require `rowcount = 1`; the
+  loser receives 409 and writes no decision, audit row or execution. Regression test
+  `test_second_decision_is_a_conflict` added; live concurrent requests verified as one 200 / one 409.
+- **Frontend fix (real defect):** the shared `Button` rendered `Slot` with multiple children when
+  `asChild` was used, which crashed the invoice detail page. `asChild` now renders exactly one child;
+  the invoice detail and every route were re-verified with zero app console errors.
+- **Final acceptance suite:** 26/26 cases covering six roles plus the automation account and 25
+  financial/security scenarios (duplicates, tolerance, VAT, currency, partial invoices, low OCR
+  confidence, corrupt/large/invalid uploads, duplicate and forged webhooks, concurrent and expired
+  approvals, self-approval, unauthorized execution, cross-tenant access, retry after failure).
+  Evidence: `docs/FINAL_ACCEPTANCE_RESULTS.md`.
+- **Demo environment:** added a platform super administrator with a random password stored outside
+  Git; the demo tenant fixture was rotated and stale test users deactivated; the retired demo password
+  remains rejected.
+- **Portfolio package:** `portfolio/` with project overview, architecture (nine Mermaid diagrams), tech
+  stack, security design, AI architecture, database design, testing, deployment, honest limitations,
+  demo script, scenarios, interview Q&A, live screenshots and a responsive/console QA report.
+- **Release hygiene:** tests re-run (backend 137 passed + 1 skip, frontend typecheck/lint/Vitest/build,
+  Playwright 10/10, 28-step workflow), full stack restart persistence verified, secret scan clean,
+  final commit and annotated `v1.0.0` tag.
+- Documentation: `docs/FINAL_PROJECT_CLOSURE_REPORT.md`, refreshed README/security/release notes.
 
 ## [1.0.0-rc.1] — 2026-11-19
 

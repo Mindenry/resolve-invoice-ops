@@ -6,7 +6,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from app.config.settings import settings
@@ -317,10 +317,29 @@ def decide(
         raise BadRequestError("A rejection reason is required.", code="rejection_reason_required")
     now = utcnow()
     decision_value = "APPROVED" if approve else "REJECTED"
-    approval.status = ApprovalStatus.APPROVED if approve else ApprovalStatus.REJECTED
-    approval.decided_at = now
-    approval.decided_by_id = actor.id
-    approval.decision_note = comment
+    # Atomically claim the pending row. Two concurrent decisions race here; the
+    # loser sees rowcount 0 and must not write a second decision or audit row.
+    claim = db.execute(
+        update(ApprovalRequest)
+        .where(
+            ApprovalRequest.id == approval.id,
+            ApprovalRequest.org_id == approval.org_id,
+            ApprovalRequest.status == ApprovalStatus.PENDING,
+        )
+        .values(
+            status=ApprovalStatus.APPROVED if approve else ApprovalStatus.REJECTED,
+            decided_at=now,
+            decided_by_id=actor.id,
+            decision_note=comment,
+        )
+        .execution_options(synchronize_session=False)
+    )
+    if claim.rowcount != 1:
+        db.rollback()
+        raise ConflictError(
+            "This approval request was already decided.", code="approval_already_decided"
+        )
+    db.refresh(approval)
     db.add(
         ApprovalDecision(
             request_id=approval.id,

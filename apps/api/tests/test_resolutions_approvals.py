@@ -249,3 +249,36 @@ def test_resolution_idempotency_key_prevents_duplicates(db, org) -> None:
     )
     db.commit()
     assert first.id == second.id
+
+def test_second_decision_is_a_conflict(client: TestClient, org: OrgFixture, db) -> None:
+    """A decided approval cannot be decided twice (atomic claim guard)."""
+    case, _invoice, vendor = _case(db, org)
+    resolution = _propose(client, org, case, vendor).json()
+    approval_id = resolution["approval"]["id"]
+
+    first = client.post(
+        f"/api/v1/approvals/{approval_id}/approve",
+        headers=org.headers[RoleCode.APPROVER],
+        json={"comment": "First decision", "execute_after_approval": False},
+    )
+    assert first.status_code == 200, first.text
+
+    second = client.post(
+        f"/api/v1/approvals/{approval_id}/approve",
+        headers=org.headers[RoleCode.APPROVER],
+        json={"comment": "Second decision", "execute_after_approval": False},
+    )
+    assert second.status_code == 409, second.text
+    assert second.json()["error"]["code"] in {"approval_already_decided", "approval_not_pending"}
+
+    detail = client.get(
+        f"/api/v1/approvals/{approval_id}", headers=org.headers[RoleCode.APPROVER]
+    ).json()
+    assert detail["status"] == "APPROVED"
+
+    audit = client.get(
+        "/api/v1/audit",
+        headers=org.headers[RoleCode.ORG_ADMIN],
+        params={"action": "approval.decided"},
+    ).json()
+    assert audit["meta"]["total"] == 1

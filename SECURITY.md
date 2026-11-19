@@ -15,8 +15,8 @@ Never include real credentials, customer documents or personal data in a report.
 
 ## Supported versions
 
-The project is pre-1.0. Security fixes are applied to the current `main` line; there are no
-maintained backport branches yet.
+The current release is `v1.0.0` (release candidate for controlled evaluation). Security fixes are
+applied to the current `master` line; there are no maintained backport branches yet.
 
 ## Implemented controls (summary)
 
@@ -50,7 +50,8 @@ are loopback-only. Backup folders containing configuration/encryption keys are A
 
 - Uploaded files are not malware-scanned; deploy ClamAV or equivalent for high-risk environments.
 - SSO/SAML/SCIM, field-level permissions and database-level audit WORM storage are not implemented.
-- The public demo password is intentionally known; never expose a seeded demo workspace to the
+- Synthetic demo accounts and data remain. They use rotated strong passwords stored outside Git and
+  must be removed or re-keyed before real financial data; never expose the demo workspace to the
   internet.
 - PostgreSQL with pgvector and encrypted object storage are required for production; SQLite is
   blocked by production configuration validation.
