@@ -209,7 +209,8 @@ scripts             provisioning and verification helpers
 If you only read one other document, make it
 [portfolio/PROJECT_OVERVIEW.md](portfolio/PROJECT_OVERVIEW.md). The short version is also in
 [portfolio/TECHNICAL_ARCHITECTURE.md](portfolio/TECHNICAL_ARCHITECTURE.md) and the demo walkthrough is
-in [portfolio/DEMO_SCRIPT.md](portfolio/DEMO_SCRIPT.md).
+in [portfolio/DEMO_SCRIPT.md](portfolio/DEMO_SCRIPT.md). If you want to try it yourself, the checklist
+in [docs/MANUAL_TEST_GUIDE.md](docs/MANUAL_TEST_GUIDE.md) includes the synthetic invoice files.
 
 ## Rough edges
 
