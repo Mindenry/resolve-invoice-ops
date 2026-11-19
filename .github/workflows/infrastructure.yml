@@ -1,0 +1,43 @@
+name: Infrastructure
+
+on:
+  push:
+    paths:
+      - "docker-compose.yml"
+      - "docker-compose.dev.yml"
+      - "infrastructure/**"
+      - "apps/api/Dockerfile"
+      - "apps/web/Dockerfile"
+      - ".github/workflows/infrastructure.yml"
+  pull_request:
+    paths:
+      - "docker-compose.yml"
+      - "docker-compose.dev.yml"
+      - "infrastructure/**"
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare environment
+        run: cp .env.example .env
+      - name: Validate compose configuration
+        run: docker compose config -q
+      - name: Validate compose dev override
+        run: docker compose -f docker-compose.yml -f docker-compose.dev.yml config -q
+      - name: Validate compose monitoring profile
+        run: docker compose --profile monitoring config -q
+      - name: Validate n8n workflow JSON
+        run: |
+          python - <<'PY'
+          import json, pathlib
+          for path in pathlib.Path("infrastructure/n8n/workflows").glob("*.json"):
+              json.loads(path.read_text())
+              print("ok", path.name)
+          PY
+      - name: Validate evaluation dataset
+        run: |
+          python -m pip install -e packages/ai-evaluation
+          resolve-eval validate datasets/evaluation/investigation_samples.json

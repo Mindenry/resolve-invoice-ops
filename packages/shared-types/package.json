@@ -1,0 +1,15 @@
+{
+  "name": "@resolve/shared-types",
+  "version": "0.1.0",
+  "private": true,
+  "description": "OpenAPI-generated TypeScript contracts for the RESOLVE API",
+  "type": "module",
+  "main": "./src/api.ts",
+  "types": "./src/api.ts",
+  "scripts": {
+    "generate": "openapi-typescript ${RESOLVE_API_URL:-http://localhost:8000}/openapi.json -o src/api.ts"
+  },
+  "devDependencies": {
+    "openapi-typescript": "^7.13.0"
+  }
+}

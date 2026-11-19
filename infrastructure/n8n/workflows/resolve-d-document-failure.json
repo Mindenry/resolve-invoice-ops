@@ -1,0 +1,440 @@
+{
+  "id": "resolve-d-document-failure",
+  "name": "RESOLVE D - Document processing failure",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "resolve/document-failure",
+        "responseMode": "responseNode",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "id": "wh-d",
+      "name": "RESOLVE event",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "wh-d"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Verify the RESOLVE HMAC-SHA256 signature over the exact raw request body and\n// validate the payload schema. Idempotency is enforced separately against the\n// RESOLVE claim store (Redis) so retried deliveries cannot be processed twice.\nconst crypto = require('crypto');\nconst item = $input.first();\nconst headers = item.json.headers || {};\nconst raw = item.binary && item.binary.data && item.binary.data.data\n  ? Buffer.from(item.binary.data.data, 'base64').toString('utf8')\n  : JSON.stringify(item.json.body || {});\nconst signature = String(headers['x-resolve-signature'] || headers['X-Resolve-Signature'] || '');\nconst secret = $env.RESOLVE_N8N_WEBHOOK_SECRET || '';\nif (!secret) { throw new Error('RESOLVE_N8N_WEBHOOK_SECRET is not configured in n8n'); }\nconst expected = crypto.createHmac('sha256', secret).update(raw, 'utf8').digest('hex');\nif (!signature || signature.length !== expected.length ||\n    !crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature))) {\n  throw new Error('Invalid RESOLVE webhook signature');\n}\nlet payload;\ntry {\n  payload = JSON.parse(raw);\n} catch (error) {\n  throw new Error('Malformed RESOLVE payload: expected JSON');\n}\nif (!payload || typeof payload !== 'object' || !payload.id || !payload.event_type) {\n  throw new Error('Malformed RESOLVE payload: id and event_type are required');\n}\nreturn [{\n  json: {\n    signature_valid: true,\n    event_id: payload.id,\n    event_type: payload.event_type,\n    occurred_at: payload.occurred_at || null,\n    entity_type: payload.entity_type || null,\n    entity_id: payload.entity_id || null,\n    data: payload.data || {},\n  },\n}];",
+        "mode": "runOnceForAllItems"
+      },
+      "id": "code-d",
+      "name": "Verify signature",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://api:8000/api/v1/internal/automation/claims",
+        "options": {
+          "timeout": 8000,
+          "redirect": {
+            "redirect": {}
+          }
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Automation-Secret",
+              "value": "={{ $env.RESOLVE_N8N_WEBHOOK_SECRET }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ key: $json.event_id }) }}"
+      },
+      "id": "http-claims-d",
+      "name": "Claim event id",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Re-attach the verified event to the idempotency verdict. A repeated delivery\n// of the same event id gets claimed=false and is answered as a duplicate.\nconst event = $('Verify signature').first().json;\nconst claim = $json || {};\nreturn [{ json: { ...event, claimed: claim.claimed === true } }];",
+        "mode": "runOnceForAllItems"
+      },
+      "id": "code-d-merge",
+      "name": "Merge claim",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "if-d-dup-cond",
+              "leftValue": "={{ !$json.claimed }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-d-dup",
+      "name": "Duplicate?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        880,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: 'duplicate', event_id: $json.event_id }) }}",
+        "options": {}
+      },
+      "id": "resp-d-dup",
+      "name": "Respond duplicate",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1100,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://api:8000/api/v1/auth/login",
+        "options": {
+          "timeout": 15000,
+          "redirect": {
+            "redirect": {}
+          }
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ email: $env.RESOLVE_AUTOMATION_EMAIL, password: $env.RESOLVE_AUTOMATION_PASSWORD, organization_slug: $env.RESOLVE_ORGANIZATION_SLUG }) }}"
+      },
+      "id": "http-d-login",
+      "name": "Login as automation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'http://api:8000/api/v1/documents/' + $('Verify signature').first().json.entity_id }}",
+        "options": {
+          "timeout": 15000,
+          "redirect": {
+            "redirect": {}
+          }
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $json.access_token }}"
+            },
+            {
+              "name": "X-Organization-Id",
+              "value": "={{ $json.organization.id }}"
+            }
+          ]
+        }
+      },
+      "id": "http-d-doc",
+      "name": "Load document",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1320,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Decide whether a failed document needs a retry or a human. Retries are never\n// performed by n8n: it reports the failure and the operator retriggers through\n// RESOLVE, which keeps OCR limits and approvals under platform control.\nconst event = $('Verify signature').first().json;\nconst detail = $json || {};\nconst status = String(detail.status || event.data.status || '').toUpperCase();\nconst attempts = Number(event.data.attempts || 0);\nconst shouldNotify = status === 'FAILED' || Boolean(event.data.error);\nconst errorText = String(detail.processing_error || event.data.error || '').slice(0, 500);\nreturn [{\n  json: {\n    should_notify: shouldNotify,\n    document_id: event.entity_id,\n    filename: detail.original_filename || event.data.filename || 'unknown',\n    status: status || 'UNKNOWN',\n    attempts,\n    retry_recommended: attempts < 3,\n    error: errorText,\n    event_id: event.event_id,\n    dedupe_key: event.entity_id + ':' + event.event_id,\n  },\n}];",
+        "mode": "runOnceForAllItems"
+      },
+      "id": "code-d-assess",
+      "name": "Assess failure",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "if-d-notify-cond",
+              "leftValue": "={{ $json.should_notify }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-d-notify",
+      "name": "Notify?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1760,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "automation@resolve.local",
+        "toEmail": "ops@resolve.local",
+        "subject": "=RESOLVE document processing failed - {{$json.filename}}",
+        "emailFormat": "text",
+        "text": "={{ ['RESOLVE document processing failure','Document: ' + $json.filename,'Document ID: ' + $json.document_id,'Status: ' + $json.status,'Recorded attempts: ' + $json.attempts,'Retry recommended: ' + $json.retry_recommended,'Error: ' + ($json.error || 'n/a'),'Event ID: ' + $json.event_id,'Next step: review the document in RESOLVE and use Reprocess when the source file is valid.'].join('\\n') }}",
+        "options": {}
+      },
+      "id": "mail-d",
+      "name": "Notify document owners",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1980,
+        -120
+      ],
+      "credentials": {
+        "smtp": {
+          "id": "PqCjjSUCHeSgu7Lw",
+          "name": "RESOLVE Mailpit SMTP"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: 'notified', document: $json.document_id }) }}",
+        "options": {}
+      },
+      "id": "resp-d-ok",
+      "name": "Respond notified",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2200,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: 'no_action', reason: 'document not in failed state' }) }}",
+        "options": {}
+      },
+      "id": "resp-d-ignore",
+      "name": "Respond ignored",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1980,
+        120
+      ]
+    }
+  ],
+  "connections": {
+    "RESOLVE event": {
+      "main": [
+        [
+          {
+            "node": "Verify signature",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify signature": {
+      "main": [
+        [
+          {
+            "node": "Claim event id",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claim event id": {
+      "main": [
+        [
+          {
+            "node": "Merge claim",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge claim": {
+      "main": [
+        [
+          {
+            "node": "Duplicate?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Duplicate?": {
+      "main": [
+        [
+          {
+            "node": "Respond duplicate",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Login as automation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Login as automation": {
+      "main": [
+        [
+          {
+            "node": "Load document",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load document": {
+      "main": [
+        [
+          {
+            "node": "Assess failure",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assess failure": {
+      "main": [
+        [
+          {
+            "node": "Notify?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify?": {
+      "main": [
+        [
+          {
+            "node": "Notify document owners",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond ignored",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notify document owners": {
+      "main": [
+        [
+          {
+            "node": "Respond notified",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "timezone": "Asia/Bangkok",
+    "executionTimeout": 300
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": [
+    {
+      "name": "resolve"
+    },
+    {
+      "name": "workflow-d"
+    }
+  ],
+  "pinData": {},
+  "versionId": "1"
+}

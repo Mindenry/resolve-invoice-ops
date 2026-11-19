@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "resolve-integration-sdk"
+version = "0.1.0"
+description = "Minimal Python client for the RESOLVE API and signed webhooks"
+requires-python = ">=3.10"
+dependencies = ["httpx>=0.27"]
+
+[tool.setuptools.packages.find]
+include = ["resolve_sdk*"]

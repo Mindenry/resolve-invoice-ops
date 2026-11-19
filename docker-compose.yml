@@ -1,0 +1,349 @@
+name: resolve
+
+x-api-image: &api-image
+  build:
+    context: .
+    dockerfile: apps/api/Dockerfile
+  image: resolve-api:local
+  env_file:
+    - .env
+  environment:
+    ENV: ${ENV:-development}
+    DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://resolve:resolve@postgres:5432/resolve}
+    REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+    CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
+    CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/1}
+    STORAGE_BACKEND: ${STORAGE_BACKEND:-s3}
+    STORAGE_LOCAL_DIR: ${STORAGE_LOCAL_DIR:-/app/var/storage}
+    S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:-http://seaweedfs:8333}
+    S3_ACCESS_KEY: ${S3_ACCESS_KEY:?S3_ACCESS_KEY must be set}
+    S3_SECRET_KEY: ${S3_SECRET_KEY:?S3_SECRET_KEY must be set}
+    S3_BUCKET: ${S3_BUCKET:-resolve-documents}
+    S3_REGION: ${S3_REGION:-us-east-1}
+    S3_USE_SSL: ${S3_USE_SSL:-false}
+    EMAIL_BACKEND: ${EMAIL_BACKEND:-smtp}
+    SMTP_HOST: ${SMTP_HOST:-mailpit}
+    SMTP_PORT: ${SMTP_PORT:-1025}
+    N8N_BASE_URL: ${N8N_BASE_URL:-http://n8n:5678}
+    FRONTEND_URL: ${FRONTEND_URL:-http://localhost:8180}
+    CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8180}
+    TASK_RUNNER: ${TASK_RUNNER:-celery}
+  volumes:
+    - api_storage:/app/var/storage
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+    seaweedfs:
+      condition: service_healthy
+  healthcheck:
+    test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/health/ready"]
+    interval: 20s
+    timeout: 8s
+    retries: 8
+    start_period: 60s
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-resolve}
+      POSTGRES_USER: ${POSTGRES_USER:-resolve}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-resolve} -d ${POSTGRES_DB:-resolve}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # SeaweedFS is an actively maintained S3-compatible store. The entrypoint
+  # generates an identity file from S3_ACCESS_KEY/S3_SECRET_KEY so the gateway
+  # requires credentials instead of allowing anonymous access.
+  seaweedfs:
+    image: chrislusf/seaweedfs:4.54
+    entrypoint: ["/bin/sh", "/entrypoint.sh"]
+    environment:
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?S3_ACCESS_KEY must be set}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?S3_SECRET_KEY must be set}
+    ports:
+      - "127.0.0.1:${S3_PORT:-9100}:8333"
+      - "127.0.0.1:${S3_CONSOLE_PORT:-9101}:9333"
+    volumes:
+      - seaweedfs_data:/data
+      - ./infrastructure/seaweedfs/entrypoint.sh:/entrypoint.sh:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:9333/cluster/healthz"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+
+  api:
+    <<: *api-image
+    ports:
+      - "127.0.0.1:${API_PORT:-8000}:8000"
+    restart: unless-stopped
+
+  worker:
+    <<: *api-image
+    command: ["celery", "-A", "app.workers.celery_app.celery_app", "worker", "--loglevel=INFO", "--concurrency=2"]
+    environment:
+      ENV: ${ENV:-development}
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://resolve:resolve@postgres:5432/resolve}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/1}
+      STORAGE_BACKEND: ${STORAGE_BACKEND:-s3}
+      STORAGE_LOCAL_DIR: ${STORAGE_LOCAL_DIR:-/app/var/storage}
+      S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:-http://seaweedfs:8333}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?S3_ACCESS_KEY must be set}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?S3_SECRET_KEY must be set}
+      S3_BUCKET: ${S3_BUCKET:-resolve-documents}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_USE_SSL: ${S3_USE_SSL:-false}
+      TASK_RUNNER: celery
+      RUN_MIGRATIONS: "false"
+    healthcheck:
+      disable: true
+    restart: unless-stopped
+
+  beat:
+    <<: *api-image
+    command: ["celery", "-A", "app.workers.celery_app.celery_app", "beat", "--loglevel=INFO"]
+    environment:
+      ENV: ${ENV:-development}
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://resolve:resolve@postgres:5432/resolve}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/1}
+      STORAGE_BACKEND: ${STORAGE_BACKEND:-s3}
+      STORAGE_LOCAL_DIR: ${STORAGE_LOCAL_DIR:-/app/var/storage}
+      S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:-http://seaweedfs:8333}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?S3_ACCESS_KEY must be set}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?S3_SECRET_KEY must be set}
+      S3_BUCKET: ${S3_BUCKET:-resolve-documents}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_USE_SSL: ${S3_USE_SSL:-false}
+      TASK_RUNNER: celery
+      RUN_MIGRATIONS: "false"
+    healthcheck:
+      disable: true
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    image: resolve-web:local
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${WEB_PORT:-8180}:443"
+      - "127.0.0.1:${WEB_HTTP_PORT:-8081}:80"
+    volumes:
+      - ./var/certs:/etc/nginx/certs:ro
+    restart: unless-stopped
+
+  mailpit:
+    image: axllent/mailpit:v1.34.0
+    ports:
+      - "127.0.0.1:${MAILPIT_PORT:-8025}:8025"
+      - "127.0.0.1:${MAILPIT_SMTP_PORT:-1026}:1025"
+    restart: unless-stopped
+
+  n8n:
+    image: n8nio/n8n:2.48.6
+    environment:
+      N8N_HOST: ${N8N_HOST:-localhost}
+      N8N_PORT: 5678
+      N8N_PROTOCOL: http
+      # Owner auth is enabled from the first run; the owner account is created
+      # interactively on the loopback UI. Basic auth is intentionally off.
+      N8N_BASIC_AUTH_ACTIVE: "false"
+      N8N_USER_MANAGEMENT_DISABLED: "false"
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:?N8N_ENCRYPTION_KEY must be set}
+      N8N_SECURE_COOKIE: "false"
+      GENERIC_TIMEZONE: ${GENERIC_TIMEZONE:-Asia/Bangkok}
+      TZ: ${GENERIC_TIMEZONE:-Asia/Bangkok}
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_HIRING_BANNER_ENABLED: "false"
+      N8N_PERSONALIZATION_ENABLED: "false"
+      N8N_VERSION_NOTIFICATIONS_ENABLED: "false"
+      N8N_TEMPLATES_ENABLED: "false"
+      N8N_LOG_LEVEL: info
+      N8N_DEFAULT_BINARY_DATA_MODE: filesystem
+      EXECUTIONS_DATA_PRUNE: "true"
+      EXECUTIONS_DATA_MAX_AGE: ${N8N_EXECUTIONS_MAX_AGE_HOURS:-168}
+      EXECUTIONS_DATA_SAVE_ON_ERROR: all
+      EXECUTIONS_DATA_SAVE_ON_SUCCESS: all
+      EXECUTIONS_DATA_SAVE_MANUAL_EXECUTIONS: "true"
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+      # Only Node's crypto module is exposed to Code nodes, for HMAC verification.
+      NODE_FUNCTION_ALLOW_BUILTIN: "crypto"
+      WEBHOOK_URL: ${N8N_WEBHOOK_BASE_URL:-http://localhost:5679}
+      RESOLVE_API_BASE_URL: http://api:8000
+      RESOLVE_N8N_WEBHOOK_SECRET: ${N8N_WEBHOOK_SECRET:?N8N_WEBHOOK_SECRET must be set}
+      RESOLVE_AUTOMATION_EMAIL: ${RESOLVE_AUTOMATION_EMAIL:?RESOLVE_AUTOMATION_EMAIL must be set}
+      RESOLVE_AUTOMATION_PASSWORD: ${RESOLVE_AUTOMATION_PASSWORD:?RESOLVE_AUTOMATION_PASSWORD must be set}
+      RESOLVE_AUTOMATION_ORG_ID: ${RESOLVE_AUTOMATION_ORG_ID:?RESOLVE_AUTOMATION_ORG_ID must be set}
+      RESOLVE_ORGANIZATION_SLUG: ${RESOLVE_ORGANIZATION_SLUG:?RESOLVE_ORGANIZATION_SLUG must be set}
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+    ports:
+      - "127.0.0.1:${N8N_PORT_HOST:-5679}:5678"
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./infrastructure/n8n/workflows:/workflows:ro
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:5678/healthz"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    restart: unless-stopped
+    profiles: ["monitoring"]
+    volumes:
+      - ./infrastructure/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infrastructure/monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+      - --web.enable-lifecycle
+    ports:
+      - "127.0.0.1:${PROMETHEUS_PORT:-9190}:9090"
+    depends_on:
+      - alertmanager
+
+  alertmanager:
+    image: prom/alertmanager:v0.28.0
+    restart: unless-stopped
+    profiles: ["monitoring"]
+    volumes:
+      - ./infrastructure/monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    ports:
+      - "127.0.0.1:${ALERTMANAGER_PORT:-9193}:9093"
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+
+  grafana:
+    image: grafana/grafana:13.3.1
+    restart: unless-stopped
+    profiles: ["monitoring"]
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:?GRAFANA_PASSWORD must be set}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_SERVER_ROOT_URL: http://127.0.0.1:${GRAFANA_PORT:-3101}
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
+    ports:
+      - "127.0.0.1:${GRAFANA_PORT:-3101}:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./infrastructure/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infrastructure/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.17.1
+    restart: unless-stopped
+    profiles: ["monitoring"]
+    environment:
+      DATA_SOURCE_NAME: postgresql://${POSTGRES_USER:-resolve}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}@postgres:5432/${POSTGRES_DB:-resolve}?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.67.0
+    restart: unless-stopped
+    profiles: ["monitoring"]
+    environment:
+      REDIS_ADDR: redis://redis:6379
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  nginx-exporter:
+    image: nginx/nginx-prometheus-exporter:1.4.1
+    restart: unless-stopped
+    profiles: ["monitoring"]
+    command:
+      - --nginx.scrape-uri=http://web:8080/nginx_status
+    depends_on:
+      - web
+
+  celery-exporter:
+    image: danihodovic/celery-exporter:0.12.2
+    restart: unless-stopped
+    profiles: ["monitoring"]
+    environment:
+      CE_BROKER_URL: redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  blackbox-exporter:
+    image: prom/blackbox-exporter:v0.25.0
+    restart: unless-stopped
+    profiles: ["monitoring"]
+    volumes:
+      - ./infrastructure/monitoring/blackbox.yml:/etc/blackbox_exporter/config.yml:ro
+    command:
+      - --config.file=/etc/blackbox_exporter/config.yml
+
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    restart: unless-stopped
+    profiles: ["monitoring"]
+    command:
+      - --path.rootfs=/host
+      - --collector.textfile.directory=/metrics
+    volumes:
+      - /:/host:ro
+      - ./var/metrics:/metrics:ro
+
+volumes:
+  postgres_data:
+  redis_data:
+  seaweedfs_data:
+  api_storage:
+  n8n_data:
+  grafana_data:
+  prometheus_data:
+  alertmanager_data:

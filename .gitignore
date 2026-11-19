@@ -1,0 +1,53 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# --- Node ---
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+
+# --- Environment / secrets ---
+.env.backup-*
+.env.*.backup*
+.env
+.env.local
+.env.*.local
+apps/api/.env
+!/.env.example
+*.pem
+*.key
+
+# --- Runtime data ---
+apps/api/var/
+apps/api/celerybeat-schedule*
+var/
+*.db
+*.sqlite3
+*.log
+
+# --- Test artefacts ---
+test-results/
+playwright-report/
+blob-report/
+docs/screenshots/*.tmp
+
+# --- OS / editors ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# --- Backups ---
+backups/

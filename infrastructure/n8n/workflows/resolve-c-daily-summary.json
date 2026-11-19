@@ -1,0 +1,188 @@
+{
+  "id": "resolve-c-daily-summary",
+  "name": "RESOLVE C - Daily operations summary",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * *"
+            }
+          ]
+        }
+      },
+      "id": "sched-c",
+      "name": "Daily at 08:00 Bangkok",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://api:8000/api/v1/auth/login",
+        "options": {
+          "timeout": 15000,
+          "redirect": {
+            "redirect": {}
+          }
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ email: $env.RESOLVE_AUTOMATION_EMAIL, password: $env.RESOLVE_AUTOMATION_PASSWORD, organization_slug: $env.RESOLVE_ORGANIZATION_SLUG }) }}"
+      },
+      "id": "http-c-login",
+      "name": "Login as automation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://api:8000/api/v1/analytics/overview?days=7",
+        "options": {
+          "timeout": 15000,
+          "redirect": {
+            "redirect": {}
+          }
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $json.access_token }}"
+            },
+            {
+              "name": "X-Organization-Id",
+              "value": "={{ $json.organization.id }}"
+            }
+          ]
+        }
+      },
+      "id": "http-c-analytics",
+      "name": "Load analytics",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build a daily operations summary from the live analytics endpoint.\nconst account = $('Login as automation').first().json;\nconst overview = $json || {};\nconst kpis = {};\nfor (const kpi of overview.kpis || []) { kpis[kpi.key] = kpi; }\nconst counts = overview.counts || {};\nconst sla = overview.sla || {};\nconst processing = overview.processing || {};\nconst lines = [\n  'RESOLVE daily operations summary',\n  'Generated: ' + new Date().toISOString() + ' (Asia/Bangkok schedule)',\n  '',\n  'Cases and exceptions',\n  '- Open cases: ' + (kpis.open_cases ? kpis.open_cases.value : 'n/a'),\n  '- Critical cases: ' + (kpis.critical_cases ? kpis.critical_cases.value : 'n/a'),\n  '- High priority cases: ' + (kpis.high_priority_cases ? kpis.high_priority_cases.value : 'n/a'),\n  '- Open exceptions: ' + (counts.open_exceptions ?? 'n/a'),\n  '- Exceptions in window: ' + (counts.exceptions_in_range ?? 'n/a'),\n  '',\n  'Resolution',\n  '- Resolved today: ' + (kpis.resolved_today ? kpis.resolved_today.value : 'n/a'),\n  '- Average resolution hours: ' + (sla.average_resolution_hours ?? 'n/a'),\n  '- SLA breached: ' + (sla.breached ?? 'n/a'),\n  '- Due within 24h: ' + (sla.due_within_24h ?? 'n/a'),\n  '',\n  'Approvals and processing',\n  '- Pending approvals: ' + (kpis.pending_approvals ? kpis.pending_approvals.value : 'n/a'),\n  '- Failed jobs: ' + (processing.failed_jobs ?? 'n/a'),\n  '- AI runs: ' + (processing.ai_runs ?? 'n/a'),\n  '',\n  'Tenant: ' + account.organization.name,\n  'Source: RESOLVE /api/v1/analytics/overview (window ' + (overview.range_days ?? 'n/a') + ' days)',\n  'No personal data beyond aggregate counts is included in this summary.',\n];\nreturn [{ json: { summary: lines.join('\\n'), open_cases: kpis.open_cases ? kpis.open_cases.value : null } }];",
+        "mode": "runOnceForAllItems"
+      },
+      "id": "code-c",
+      "name": "Build summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "automation@resolve.local",
+        "toEmail": "ops@resolve.local",
+        "subject": "=RESOLVE daily operations summary - {{ $now.setZone('Asia/Bangkok').toFormat('yyyy-MM-dd') }}",
+        "emailFormat": "text",
+        "text": "={{ $json.summary }}",
+        "options": {}
+      },
+      "id": "mail-c",
+      "name": "Send daily summary",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        880,
+        0
+      ],
+      "credentials": {
+        "smtp": {
+          "id": "PqCjjSUCHeSgu7Lw",
+          "name": "RESOLVE Mailpit SMTP"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Daily at 08:00 Bangkok": {
+      "main": [
+        [
+          {
+            "node": "Login as automation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Login as automation": {
+      "main": [
+        [
+          {
+            "node": "Load analytics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load analytics": {
+      "main": [
+        [
+          {
+            "node": "Build summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build summary": {
+      "main": [
+        [
+          {
+            "node": "Send daily summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "timezone": "Asia/Bangkok",
+    "executionTimeout": 300
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": [
+    {
+      "name": "resolve"
+    },
+    {
+      "name": "workflow-c"
+    }
+  ],
+  "pinData": {},
+  "versionId": "1"
+}

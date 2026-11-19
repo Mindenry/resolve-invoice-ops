@@ -1,0 +1,72 @@
+name: Backend
+
+on:
+  push:
+    paths:
+      - "apps/api/**"
+      - "datasets/**"
+      - ".github/workflows/backend.yml"
+  pull_request:
+    paths:
+      - "apps/api/**"
+      - "datasets/**"
+      - ".github/workflows/backend.yml"
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_DB: resolve
+          POSTGRES_USER: resolve
+          POSTGRES_PASSWORD: resolve
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U resolve -d resolve"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      ENV: test
+      SECRET_KEY: ci-secret-key-0123456789abcdef0123456789
+      AI_PROVIDER: stub
+      AI_EMBEDDING_PROVIDER: stub
+      AI_EMBEDDING_DIM: "64"
+      TASK_RUNNER: inline
+      RATE_LIMIT_ENABLED: "false"
+      DATABASE_URL: postgresql+psycopg://resolve:resolve@localhost:5432/resolve
+      RESOLVE_TEST_DATABASE_URL: postgresql+psycopg://resolve:resolve@localhost:5432/resolve
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: pip install -e "apps/api[dev]"
+      - name: Lint (ruff)
+        run: ruff check apps/api
+      - name: Compile check
+        run: python -m compileall -q apps/api/app
+      - name: Database migrations
+        working-directory: apps/api
+        env:
+          ENV: development
+          AUTO_CREATE_SCHEMA: "false"
+        run: |
+          alembic upgrade head
+          alembic check
+      - name: Tests
+        working-directory: apps/api
+        run: pytest -q
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-artifacts
+          path: apps/api/.pytest_cache
+          retention-days: 3

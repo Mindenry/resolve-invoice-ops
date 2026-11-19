@@ -1,0 +1,164 @@
+groups:
+  - name: resolve-critical
+    rules:
+      - alert: ResolveApiDown
+        expr: up{job="resolve-api"} == 0
+        for: 1m
+        labels: { severity: critical, service: api }
+        annotations:
+          summary: "RESOLVE API is down"
+          description: "Prometheus cannot scrape the RESOLVE API."
+
+      - alert: ResolveDatabaseDown
+        expr: resolve_db_up == 0
+        for: 1m
+        labels: { severity: critical, service: database }
+        annotations:
+          summary: "RESOLVE database is unreachable"
+          description: "The API reports resolve_db_up=0."
+
+      - alert: ResolvePostgresExporterDown
+        expr: up{job="postgres"} == 0
+        for: 2m
+        labels: { severity: critical, service: database }
+        annotations:
+          summary: "PostgreSQL exporter is down"
+          description: "The exporter cannot reach PostgreSQL."
+
+      - alert: ResolveRedisDown
+        expr: resolve_redis_up == 0
+        for: 1m
+        labels: { severity: critical, service: redis }
+        annotations:
+          summary: "RESOLVE Redis is unreachable"
+          description: "The API reports resolve_redis_up=0."
+
+      - alert: ResolveStorageDown
+        expr: resolve_storage_up == 0
+        for: 1m
+        labels: { severity: critical, service: storage }
+        annotations:
+          summary: "RESOLVE object storage is unavailable"
+          description: "The API reports resolve_storage_up=0."
+
+      - alert: ResolveWorkerDown
+        expr: sum(celery_worker_up) < 1
+        for: 2m
+        labels: { severity: critical, service: worker }
+        annotations:
+          summary: "No Celery worker is registered"
+          description: "The Celery exporter reports zero online workers; documents and AI jobs will queue."
+
+      - alert: ResolveCeleryExporterDown
+        expr: up{job="celery"} == 0
+        for: 3m
+        labels: { severity: warning, service: worker }
+        annotations:
+          summary: "Celery exporter is down"
+          description: "Worker health cannot be evaluated."
+
+      # Beat publishes the transactional outbox every minute; a stalled outbox
+      # means beat/worker are not draining scheduled work.
+      - alert: ResolveOutboxStalled
+        expr: resolve_outbox_pending > 0 and resolve_outbox_oldest_seconds > 300
+        for: 5m
+        labels: { severity: warning, service: worker }
+        annotations:
+          summary: "Domain event outbox is not being drained"
+          description: "{{ $value }} pending events; the oldest is older than 5 minutes (beat or worker stalled)."
+
+      - alert: ResolveCeleryQueueBacklog
+        expr: celery_queue_length > 50
+        for: 10m
+        labels: { severity: warning, service: worker }
+        annotations:
+          summary: "Celery queue backlog above 50"
+          description: "{{ $value }} tasks are waiting in the broker queue."
+
+      - alert: ResolveHighErrorRate
+        expr: sum(rate(resolve_http_requests_total{status=~"5.."}[5m])) / clamp_min(sum(rate(resolve_http_requests_total[5m])), 0.001) > 0.05
+        for: 5m
+        labels: { severity: warning, service: api }
+        annotations:
+          summary: "RESOLVE API 5xx rate above 5%"
+          description: "5xx ratio is {{ $value | humanizePercentage }} over 5 minutes."
+
+      - alert: ResolveHighLatency
+        expr: histogram_quantile(0.95, sum(rate(resolve_http_request_duration_seconds_bucket[5m])) by (le)) > 2
+        for: 5m
+        labels: { severity: warning, service: api }
+        annotations:
+          summary: "RESOLVE API p95 latency above 2s"
+          description: "p95 latency is {{ $value }} seconds."
+
+      - alert: ResolveApprovalBacklog
+        expr: resolve_approvals_pending > 20
+        for: 10m
+        labels: { severity: warning, service: approvals }
+        annotations:
+          summary: "RESOLVE approval backlog is high"
+          description: "{{ $value }} approvals are pending."
+
+      - alert: ResolveDocumentProcessingFailures
+        expr: resolve_documents_failed > 5
+        for: 10m
+        labels: { severity: warning, service: documents }
+        annotations:
+          summary: "Multiple documents failed processing"
+          description: "{{ $value }} documents are in FAILED state (OCR/extraction)."
+
+      - alert: ResolveOllamaUnavailable
+        expr: probe_success{job="blackbox", instance="http://host.docker.internal:11434/api/version"} == 0
+        for: 2m
+        labels: { severity: warning, service: ai }
+        annotations:
+          summary: "Ollama is unreachable from the monitoring network"
+          description: "AI investigations will fail until Ollama is restored."
+
+      - alert: ResolveN8nUnavailable
+        expr: probe_success{job="blackbox", instance="http://n8n:5678/healthz"} == 0
+        for: 2m
+        labels: { severity: warning, service: n8n }
+        annotations:
+          summary: "n8n health probe failed"
+          description: "Automation is unavailable."
+
+      - alert: ResolveNginxUnavailable
+        expr: nginx_up == 0
+        for: 2m
+        labels: { severity: critical, service: web }
+        annotations:
+          summary: "nginx stub_status probe failed"
+          description: "The web tier cannot be monitored."
+
+      - alert: ResolveHighMemoryUsage
+        expr: (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) > 0.9
+        for: 10m
+        labels: { severity: warning, service: host }
+        annotations:
+          summary: "Container host memory above 90%"
+          description: "Only {{ $value | humanizePercentage }} of host memory is used by the Docker VM."
+
+      - alert: ResolveDiskSpaceLow
+        expr: node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay"} < 0.15
+        for: 10m
+        labels: { severity: warning, service: host }
+        annotations:
+          summary: "Disk space below 15%"
+          description: "Mount {{ $labels.mountpoint }} has {{ $value | humanizePercentage }} free."
+
+      - alert: ResolveBackupStale
+        expr: time() - resolve_backup_last_success_timestamp_seconds > 93600
+        for: 5m
+        labels: { severity: warning, service: backup }
+        annotations:
+          summary: "No successful RESOLVE backup in 26 hours"
+          description: "Run scripts/backup-resolve.ps1 and check the scheduled task."
+
+      - alert: ResolveCertificateExpiringSoon
+        expr: probe_ssl_earliest_cert_expiry{job="blackbox-cert"} - time() < 2592000
+        for: 1h
+        labels: { severity: warning, service: web }
+        annotations:
+          summary: "TLS certificate expires within 30 days"
+          description: "Renew the local mkcert certificate and recreate the web container."

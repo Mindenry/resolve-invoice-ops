@@ -1,0 +1,6 @@
+vendor_number,legal_name,tax_id,currency,email,country
+V-DEMO-01,Example Office Supply Co. Ltd.,TH0105550001,THB,ap@example-office.example.com,TH
+V-DEMO-02,Example Components Pte Ltd,SG200012345,USD,finance@example-components.example.com,SG
+V-DEMO-03,Example Logistics Co. Ltd.,TH0105550003,THB,billing@example-logistics.example.com,TH
+V-DEMO-04,Example Advisory LLP,GB123456789,GBP,accounts@example-advisory.example.com,GB
+V-DEMO-05,Example Freight Services,SG200054321,SGD,invoices@example-freight.example.com,SG

@@ -1,0 +1,173 @@
+{
+  "name": "Invoice exception investigations (synthetic)",
+  "version": "1.0",
+  "description": "Synthetic labelled cases for the RESOLVE investigation evaluation harness. All data is fictional and generated for evaluation only.",
+  "samples": [
+    {
+      "sample_key": "dup-invoice-001",
+      "case_context": {
+        "case": {"case_number": "EVAL-0001", "title": "Duplicate invoice suspected", "priority": "HIGH", "severity": "HIGH"},
+        "exceptions": [
+          {"exception_type": "DUPLICATE_INVOICE", "severity": "HIGH", "title": "Possible duplicate invoice INV-2041", "description": "Two invoices share the same vendor, number and total."}
+        ],
+        "invoices": [{"invoice_number": "INV-2041", "currency": "USD", "total": "1250.00", "invoice_date": "2026-01-14"}],
+        "purchase_orders": [],
+        "vendors": [{"legal_name": "Bangkok Office Supply Co., Ltd.", "tax_id": "TH0105550001"}],
+        "evidence_candidates": [
+          {"source_type": "INVOICE", "source_id": "inv-1", "quote": "Invoice INV-2041 total USD 1250.00", "relationship": "Original invoice"},
+          {"source_type": "INVOICE", "source_id": "inv-2", "quote": "Invoice INV-2041 total USD 1250.00", "relationship": "Second invoice with identical number and amount"}
+        ]
+      },
+      "expected_exception_types": ["DUPLICATE_INVOICE"],
+      "expected_root_cause": "The same invoice was submitted twice with an identical invoice number, vendor and total.",
+      "expected_evidence": [
+        {"quote": "Invoice INV-2041 total USD 1250.00", "source_type": "INVOICE"}
+      ],
+      "expected_recommendations": ["MARK_DUPLICATE"]
+    },
+    {
+      "sample_key": "amount-mismatch-001",
+      "case_context": {
+        "case": {"case_number": "EVAL-0002", "title": "Invoice above purchase order total", "priority": "HIGH", "severity": "HIGH"},
+        "exceptions": [
+          {"exception_type": "AMOUNT_MISMATCH", "severity": "HIGH", "title": "Invoice total differs from PO", "description": "Invoice total 1,180.00 versus purchase order total 1,000.00 (18% difference)."}
+        ],
+        "invoices": [{"invoice_number": "INV-3001", "currency": "USD", "total": "1180.00", "subtotal": "1102.80", "tax": "77.20"}],
+        "purchase_orders": [{"po_number": "PO-7781", "currency": "USD", "total": "1000.00"}],
+        "vendors": [{"legal_name": "Siam Components Ltd."}],
+        "evidence_candidates": [
+          {"source_type": "PURCHASE_ORDER", "source_id": "po-1", "quote": "Purchase order PO-7781 total USD 1000.00 (OPEN)", "relationship": "Matched purchase order"},
+          {"source_type": "INVOICE", "source_id": "inv-3", "quote": "Invoice INV-3001 total USD 1180.00", "relationship": "Invoice under review"}
+        ]
+      },
+      "expected_exception_types": ["AMOUNT_MISMATCH"],
+      "expected_root_cause": "The invoice total exceeds the purchase order total beyond the configured tolerance, likely due to an unauthorised price increase.",
+      "expected_evidence": [
+        {"quote": "Purchase order PO-7781 total USD 1000.00", "source_type": "PURCHASE_ORDER"}
+      ],
+      "expected_recommendations": ["REQUEST_VENDOR_CONFIRMATION"]
+    },
+    {
+      "sample_key": "missing-po-001",
+      "case_context": {
+        "case": {"case_number": "EVAL-0003", "title": "Invoice without purchase order", "priority": "HIGH", "severity": "HIGH"},
+        "exceptions": [
+          {"exception_type": "MISSING_PURCHASE_ORDER", "severity": "HIGH", "title": "Invoice has no purchase order", "description": "No purchase order reference was supplied and the vendor is not exempt."}
+        ],
+        "invoices": [{"invoice_number": "INV-4102", "currency": "THB", "total": "48200.00"}],
+        "purchase_orders": [],
+        "vendors": [{"legal_name": "Chiang Mai Logistics Co., Ltd."}],
+        "evidence_candidates": [
+          {"source_type": "INVOICE", "source_id": "inv-4", "quote": "Invoice INV-4102 total THB 48200.00", "relationship": "Invoice without a purchase order"}
+        ]
+      },
+      "expected_exception_types": ["MISSING_PURCHASE_ORDER"],
+      "expected_root_cause": "The invoice was received without a purchase order, so the spend cannot be matched to an approved commitment.",
+      "expected_evidence": [{"quote": "Invoice INV-4102 total THB 48200.00", "source_type": "INVOICE"}],
+      "expected_recommendations": ["ESCALATE_CASE"]
+    },
+    {
+      "sample_key": "tax-mismatch-001",
+      "case_context": {
+        "case": {"case_number": "EVAL-0004", "title": "VAT does not match subtotal", "priority": "MEDIUM", "severity": "HIGH"},
+        "exceptions": [
+          {"exception_type": "TAX_DISCREPANCY", "severity": "HIGH", "title": "Tax or VAT discrepancy", "description": "VAT of 140.00 does not equal 7% of the 1,000.00 subtotal."}
+        ],
+        "invoices": [{"invoice_number": "INV-5520", "currency": "THB", "subtotal": "1000.00", "tax": "140.00", "total": "1140.00"}],
+        "purchase_orders": [],
+        "vendors": [{"legal_name": "Phuket Print House"}],
+        "evidence_candidates": [
+          {"source_type": "INVOICE", "source_id": "inv-5", "quote": "Subtotal 1000.00 VAT 140.00 Total 1140.00", "relationship": "Invoice amounts"}
+        ]
+      },
+      "expected_exception_types": ["TAX_DISCREPANCY"],
+      "expected_root_cause": "The VAT amount was calculated at 14% instead of the configured 7% rate.",
+      "expected_evidence": [{"quote": "Subtotal 1000.00 VAT 140.00 Total 1140.00", "source_type": "INVOICE"}],
+      "expected_recommendations": ["REQUEST_VENDOR_CONFIRMATION"]
+    },
+    {
+      "sample_key": "extraction-anomaly-001",
+      "case_context": {
+        "case": {"case_number": "EVAL-0005", "title": "Low OCR confidence on invoice scan", "priority": "MEDIUM", "severity": "HIGH"},
+        "exceptions": [
+          {"exception_type": "EXTRACTION_ANOMALY", "severity": "HIGH", "title": "Document extraction anomaly", "description": "OCR confidence 0.41 and required field total is missing."}
+        ],
+        "invoices": [{"invoice_number": "INV-6001", "currency": "USD", "total": "0.00"}],
+        "purchase_orders": [],
+        "vendors": [{"legal_name": "Northern Tools Co."}],
+        "evidence_candidates": [
+          {"source_type": "DOCUMENT", "source_id": "doc-1", "document_id": "00000000-0000-0000-0000-000000000001", "page_number": 1, "quote": "Total amount unreadable", "relationship": "Scanned invoice page"}
+        ]
+      },
+      "expected_exception_types": ["EXTRACTION_ANOMALY"],
+      "expected_root_cause": "The scanned invoice image is low quality, so the total could not be extracted and the document requires human review.",
+      "expected_evidence": [{"quote": "Total amount unreadable", "source_type": "DOCUMENT"}],
+      "expected_recommendations": ["REQUEST_MISSING_DOCUMENTS"]
+    },
+    {
+      "sample_key": "vendor-mismatch-001",
+      "case_context": {
+        "case": {"case_number": "EVAL-0006", "title": "Vendor differs from purchase order", "priority": "HIGH", "severity": "HIGH"},
+        "exceptions": [
+          {"exception_type": "VENDOR_MISMATCH", "severity": "HIGH", "title": "Vendor identity mismatch", "description": "Invoice vendor tax ID differs from the purchase order vendor."}
+        ],
+        "invoices": [{"invoice_number": "INV-7002", "currency": "USD", "total": "860.00"}],
+        "purchase_orders": [{"po_number": "PO-9911", "currency": "USD", "total": "860.00"}],
+        "vendors": [
+          {"legal_name": "Eastern Distribution Ltd.", "tax_id": "TH0105550099"},
+          {"legal_name": "Eastern Distribution (Thailand) Co., Ltd.", "tax_id": "TH0105550100"}
+        ],
+        "evidence_candidates": [
+          {"source_type": "VENDOR", "source_id": "vendor-1", "quote": "Vendor Eastern Distribution Ltd. (tax id TH0105550099, status ACTIVE)", "relationship": "Invoice vendor"},
+          {"source_type": "PURCHASE_ORDER", "source_id": "po-2", "quote": "Purchase order PO-9911 belongs to Eastern Distribution (Thailand) Co., Ltd.", "relationship": "PO vendor"}
+        ]
+      },
+      "expected_exception_types": ["VENDOR_MISMATCH"],
+      "expected_root_cause": "Two related vendor records exist and the invoice was issued by a different legal entity than the purchase order.",
+      "expected_evidence": [{"quote": "Vendor Eastern Distribution Ltd. (tax id TH0105550099", "source_type": "VENDOR"}],
+      "expected_recommendations": ["ESCALATE_CASE"]
+    },
+    {
+      "sample_key": "invalid-date-001",
+      "case_context": {
+        "case": {"case_number": "EVAL-0007", "title": "Invoice dated after contract expiry", "priority": "MEDIUM", "severity": "HIGH"},
+        "exceptions": [
+          {"exception_type": "INVALID_INVOICE_DATE", "severity": "HIGH", "title": "Invalid or risky invoice date", "description": "Invoice date 2026-03-02 is after the vendor contract expiry 2025-12-31."}
+        ],
+        "invoices": [{"invoice_number": "INV-8120", "currency": "GBP", "total": "2400.00", "invoice_date": "2026-03-02"}],
+        "purchase_orders": [],
+        "vendors": [{"legal_name": "London Advisory Partners Ltd."}],
+        "evidence_candidates": [
+          {"source_type": "DOCUMENT", "source_id": "doc-2", "document_id": "00000000-0000-0000-0000-000000000002", "page_number": 2, "quote": "This agreement expires on 31 December 2025.", "relationship": "Vendor contract expiry clause"}
+        ]
+      },
+      "expected_exception_types": ["INVALID_INVOICE_DATE"],
+      "expected_root_cause": "The invoice was issued after the vendor contract expired, so the charges are not covered by an active agreement.",
+      "expected_evidence": [{"quote": "This agreement expires on 31 December 2025.", "source_type": "DOCUMENT"}],
+      "expected_recommendations": ["ESCALATE_CASE"]
+    },
+    {
+      "sample_key": "duplicate-vendor-001",
+      "case_context": {
+        "case": {"case_number": "EVAL-0008", "title": "Potential duplicate vendor master record", "priority": "MEDIUM", "severity": "MEDIUM"},
+        "exceptions": [
+          {"exception_type": "DUPLICATE_VENDOR", "severity": "MEDIUM", "title": "Possible duplicate vendor", "description": "Two vendor records share the same tax ID."}
+        ],
+        "invoices": [],
+        "purchase_orders": [],
+        "vendors": [
+          {"legal_name": "Mekong Trading Co., Ltd.", "tax_id": "TH0105550200"},
+          {"legal_name": "Mekong Trading Company Limited", "tax_id": "TH0105550200"}
+        ],
+        "evidence_candidates": [
+          {"source_type": "VENDOR", "source_id": "vendor-3", "quote": "Vendor Mekong Trading Co., Ltd. (tax id TH0105550200, status ACTIVE)", "relationship": "Vendor master A"},
+          {"source_type": "VENDOR", "source_id": "vendor-4", "quote": "Vendor Mekong Trading Company Limited (tax id TH0105550200, status ACTIVE)", "relationship": "Vendor master B"}
+        ]
+      },
+      "expected_exception_types": ["DUPLICATE_VENDOR"],
+      "expected_root_cause": "The vendor master contains two records for the same legal entity with identical tax IDs.",
+      "expected_evidence": [{"quote": "Vendor Mekong Trading Co., Ltd. (tax id TH0105550200", "source_type": "VENDOR"}],
+      "expected_recommendations": ["NOTIFY_TEAM"]
+    }
+  ]
+}

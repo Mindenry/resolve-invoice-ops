@@ -1,0 +1,27 @@
+global:
+  smtp_smarthost: "mailpit:1025"
+  smtp_from: "alertmanager@resolve.local"
+  smtp_require_tls: false
+  resolve_timeout: 5m
+
+route:
+  receiver: "mailpit"
+  group_by: ["alertname", "service"]
+  group_wait: 5s
+  group_interval: 30s
+  repeat_interval: 1h
+
+receivers:
+  - name: "mailpit"
+    email_configs:
+      - to: "ops@resolve.local"
+        send_resolved: true
+        headers:
+          Subject: "[RESOLVE ALERT] {{ .CommonLabels.alertname }}"
+
+inhibit_rules:
+  - source_match:
+      severity: "critical"
+    target_match:
+      severity: "warning"
+    equal: ["service"]

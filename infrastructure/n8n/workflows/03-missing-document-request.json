@@ -1,0 +1,105 @@
+{
+  "name": "Missing document request",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "missing-document-request",
+        "responseMode": "onReceived",
+        "options": {
+          "rawBody": false
+        }
+      },
+      "id": "node-webhook-2",
+      "name": "RESOLVE webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "resolve-missing-document-request"
+    },
+    {
+      "parameters": {
+        "jsCode": "// RESOLVE signs the raw body with HMAC-SHA256.\n// Configure this comparison in production; this template only forwards validated payloads.\nconst crypto = require('crypto');\nconst secret = $env.RESOLVE_WEBHOOK_SECRET || '';\nconst header = $json.headers?.['x-resolve-signature'] || '';\nif (secret && header) {\n  const raw = $json.rawBody || JSON.stringify($json.body || {});\n  const expected = crypto.createHmac('sha256', secret).update(raw).digest('hex');\n  if (expected !== header) { throw new Error('Invalid RESOLVE signature'); }\n}\nreturn [{ json: { ...($json.body || $json), received_at: new Date().toISOString(), audience: 'Vendor accounts payable' } }];\n"
+      },
+      "id": "node-verify-2",
+      "name": "Verify signature",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        230,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "resolve@example.com",
+        "toEmail": "={{ $json.vendor_email || $env.RESOLVE_OPS_EMAIL }}",
+        "subject": "={ '[RESOLVE] Missing document request' }",
+        "emailFormat": "text",
+        "text": "={{ JSON.stringify($json, null, 2) }}",
+        "options": {}
+      },
+      "id": "node-email-2",
+      "name": "Send email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        460,
+        0
+      ],
+      "credentials": {
+        "smtp": {
+          "id": "REPLACE_WITH_SMTP_CREDENTIAL",
+          "name": "RESOLVE SMTP"
+        }
+      },
+      "continueOnFail": true
+    }
+  ],
+  "connections": {
+    "RESOLVE webhook": {
+      "main": [
+        [
+          {
+            "node": "Verify signature",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify signature": {
+      "main": [
+        [
+          {
+            "node": "Send email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "resolve-3",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": [
+    {
+      "name": "resolve"
+    },
+    {
+      "name": "template"
+    }
+  ],
+  "pinData": {}
+}

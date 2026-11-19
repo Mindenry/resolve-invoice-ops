@@ -1,0 +1,301 @@
+{
+  "id": "resolve-e-health-monitor",
+  "name": "RESOLVE E - Integration health monitor",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "*/5 * * * *"
+            }
+          ]
+        }
+      },
+      "id": "sched-e",
+      "name": "Every 5 minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://api:8000/health/ready",
+        "options": {
+          "timeout": 8000,
+          "redirect": {
+            "redirect": {}
+          }
+        }
+      },
+      "id": "http-e-api",
+      "name": "Probe API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        -200
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://host.docker.internal:11434/api/version",
+        "options": {
+          "timeout": 8000,
+          "redirect": {
+            "redirect": {}
+          }
+        }
+      },
+      "id": "http-e-ollama",
+      "name": "Probe Ollama",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        0
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://n8n:5678/healthz",
+        "options": {
+          "timeout": 8000,
+          "redirect": {
+            "redirect": {}
+          }
+        }
+      },
+      "id": "http-e-n8n",
+      "name": "Probe n8n",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        200
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://prometheus:9090/api/v1/query?query=sum(celery_worker_up)",
+        "options": {
+          "timeout": 8000,
+          "redirect": {
+            "redirect": {}
+          }
+        }
+      },
+      "id": "http-e-prom",
+      "name": "Probe worker count",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        400
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Aggregate the live probes into one health verdict.\nconst api = $('Probe API').first().json || {};\nconst ollama = $('Probe Ollama').first().json || {};\nconst n8n = $('Probe n8n').first().json || {};\nconst prom = $('Probe worker count').first().json || {};\nconst apiOk = !api.error && String(api.status || '') === 'ready';\nconst ollamaOk = !ollama.error && Boolean(ollama.version);\nconst n8nOk = !n8n.error && (n8n === true || n8n.status === 'ok' || Boolean(n8n.ok));\nlet workers = null;\ntry {\n  const result = prom.data && prom.data.result ? prom.data.result : [];\n  workers = result.length ? Number(result[0].value[1]) : 0;\n} catch (error) { workers = null; }\nconst workerOk = workers === null ? !prom.error : workers > 0;\nconst components = (api.components || {});\nconst databaseOk = components.database ? components.database.status === 'ok' : false;\nconst redisOk = components.redis ? components.redis.status === 'ok' : false;\nconst storageOk = components.storage ? components.storage.status === 'ok' : false;\nconst degraded = !(apiOk && ollamaOk && n8nOk && workerOk && databaseOk && redisOk && storageOk);\nconst lines = [\n  'RESOLVE integration health monitor',\n  'Checked: ' + new Date().toISOString(),\n  '',\n  'API: ' + (apiOk ? 'ready' : 'DOWN'),\n  'Database: ' + (databaseOk ? 'ok' : 'DOWN'),\n  'Redis: ' + (redisOk ? 'ok' : 'DOWN'),\n  'Object storage: ' + (storageOk ? 'ok' : 'DOWN'),\n  'Celery workers: ' + (workers === null ? 'unknown' : workers),\n  'Ollama: ' + (ollamaOk ? 'reachable' : 'unreachable'),\n  'n8n: ' + (n8nOk ? 'healthy' : 'unhealthy'),\n];\nreturn [{ json: { degraded, summary: lines.join('\\n'), workers } }];",
+        "mode": "runOnceForAllItems"
+      },
+      "id": "code-e",
+      "name": "Assess health",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "if-e-cond",
+              "leftValue": "={{ $json.degraded }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-e",
+      "name": "Degraded?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        700,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "automation@resolve.local",
+        "toEmail": "ops@resolve.local",
+        "subject": "=RESOLVE health alert - {{ $now.setZone('Asia/Bangkok').toFormat('yyyy-MM-dd HH:mm') }}",
+        "emailFormat": "text",
+        "text": "={{ $json.summary }}",
+        "options": {}
+      },
+      "id": "mail-e",
+      "name": "Alert on degraded services",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        940,
+        -40
+      ],
+      "credentials": {
+        "smtp": {
+          "id": "PqCjjSUCHeSgu7Lw",
+          "name": "RESOLVE Mailpit SMTP"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "noop-e",
+      "name": "Healthy",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        940,
+        240
+      ]
+    }
+  ],
+  "connections": {
+    "Every 5 minutes": {
+      "main": [
+        [
+          {
+            "node": "Probe API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Probe API": {
+      "main": [
+        [
+          {
+            "node": "Probe Ollama",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Probe Ollama": {
+      "main": [
+        [
+          {
+            "node": "Probe n8n",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Probe n8n": {
+      "main": [
+        [
+          {
+            "node": "Probe worker count",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Probe worker count": {
+      "main": [
+        [
+          {
+            "node": "Assess health",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assess health": {
+      "main": [
+        [
+          {
+            "node": "Degraded?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Degraded?": {
+      "main": [
+        [
+          {
+            "node": "Alert on degraded services",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Healthy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "timezone": "Asia/Bangkok",
+    "executionTimeout": 300
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": [
+    {
+      "name": "resolve"
+    },
+    {
+      "name": "workflow-e"
+    }
+  ],
+  "pinData": {},
+  "versionId": "1"
+}

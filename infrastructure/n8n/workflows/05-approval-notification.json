@@ -1,0 +1,101 @@
+{
+  "name": "Approval notification",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "approval-notification",
+        "responseMode": "onReceived",
+        "options": {
+          "rawBody": false
+        }
+      },
+      "id": "node-webhook-4",
+      "name": "RESOLVE webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "resolve-approval-notification"
+    },
+    {
+      "parameters": {
+        "jsCode": "// RESOLVE signs the raw body with HMAC-SHA256.\n// Configure this comparison in production; this template only forwards validated payloads.\nconst crypto = require('crypto');\nconst secret = $env.RESOLVE_WEBHOOK_SECRET || '';\nconst header = $json.headers?.['x-resolve-signature'] || '';\nif (secret && header) {\n  const raw = $json.rawBody || JSON.stringify($json.body || {});\n  const expected = crypto.createHmac('sha256', secret).update(raw).digest('hex');\n  if (expected !== header) { throw new Error('Invalid RESOLVE signature'); }\n}\nreturn [{ json: { ...($json.body || $json), received_at: new Date().toISOString(), audience: 'Approver' } }];\n"
+      },
+      "id": "node-verify-4",
+      "name": "Verify signature",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        230,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.RESOLVE_OPS_WEBHOOK_URL }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ text: 'RESOLVE: Approval notification', event: $json }) }}",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "node-notify-4",
+      "name": "Notify channel",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        460,
+        0
+      ],
+      "continueOnFail": true
+    }
+  ],
+  "connections": {
+    "RESOLVE webhook": {
+      "main": [
+        [
+          {
+            "node": "Verify signature",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify signature": {
+      "main": [
+        [
+          {
+            "node": "Notify channel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "resolve-5",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": [
+    {
+      "name": "resolve"
+    },
+    {
+      "name": "template"
+    }
+  ],
+  "pinData": {}
+}

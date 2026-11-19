@@ -1,0 +1,440 @@
+{
+  "id": "resolve-b-critical-escalation",
+  "name": "RESOLVE B - Critical case escalation",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "resolve/critical-escalation",
+        "responseMode": "responseNode",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "id": "wh-b",
+      "name": "RESOLVE event",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "wh-b"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Verify the RESOLVE HMAC-SHA256 signature over the exact raw request body and\n// validate the payload schema. Idempotency is enforced separately against the\n// RESOLVE claim store (Redis) so retried deliveries cannot be processed twice.\nconst crypto = require('crypto');\nconst item = $input.first();\nconst headers = item.json.headers || {};\nconst raw = item.binary && item.binary.data && item.binary.data.data\n  ? Buffer.from(item.binary.data.data, 'base64').toString('utf8')\n  : JSON.stringify(item.json.body || {});\nconst signature = String(headers['x-resolve-signature'] || headers['X-Resolve-Signature'] || '');\nconst secret = $env.RESOLVE_N8N_WEBHOOK_SECRET || '';\nif (!secret) { throw new Error('RESOLVE_N8N_WEBHOOK_SECRET is not configured in n8n'); }\nconst expected = crypto.createHmac('sha256', secret).update(raw, 'utf8').digest('hex');\nif (!signature || signature.length !== expected.length ||\n    !crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature))) {\n  throw new Error('Invalid RESOLVE webhook signature');\n}\nlet payload;\ntry {\n  payload = JSON.parse(raw);\n} catch (error) {\n  throw new Error('Malformed RESOLVE payload: expected JSON');\n}\nif (!payload || typeof payload !== 'object' || !payload.id || !payload.event_type) {\n  throw new Error('Malformed RESOLVE payload: id and event_type are required');\n}\nreturn [{\n  json: {\n    signature_valid: true,\n    event_id: payload.id,\n    event_type: payload.event_type,\n    occurred_at: payload.occurred_at || null,\n    entity_type: payload.entity_type || null,\n    entity_id: payload.entity_id || null,\n    data: payload.data || {},\n  },\n}];",
+        "mode": "runOnceForAllItems"
+      },
+      "id": "code-b",
+      "name": "Verify signature",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://api:8000/api/v1/internal/automation/claims",
+        "options": {
+          "timeout": 8000,
+          "redirect": {
+            "redirect": {}
+          }
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Automation-Secret",
+              "value": "={{ $env.RESOLVE_N8N_WEBHOOK_SECRET }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ key: $json.event_id }) }}"
+      },
+      "id": "http-claims-b",
+      "name": "Claim event id",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Re-attach the verified event to the idempotency verdict. A repeated delivery\n// of the same event id gets claimed=false and is answered as a duplicate.\nconst event = $('Verify signature').first().json;\nconst claim = $json || {};\nreturn [{ json: { ...event, claimed: claim.claimed === true } }];",
+        "mode": "runOnceForAllItems"
+      },
+      "id": "code-b-merge",
+      "name": "Merge claim",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "if-b-dup-cond",
+              "leftValue": "={{ !$json.claimed }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-b-dup",
+      "name": "Duplicate?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        880,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: 'duplicate', event_id: $json.event_id }) }}",
+        "options": {}
+      },
+      "id": "resp-b-dup",
+      "name": "Respond duplicate",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1100,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://api:8000/api/v1/auth/login",
+        "options": {
+          "timeout": 15000,
+          "redirect": {
+            "redirect": {}
+          }
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ email: $env.RESOLVE_AUTOMATION_EMAIL, password: $env.RESOLVE_AUTOMATION_PASSWORD, organization_slug: $env.RESOLVE_ORGANIZATION_SLUG }) }}"
+      },
+      "id": "http-b-login",
+      "name": "Login as automation",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'http://api:8000/api/v1/cases/' + $('Verify signature').first().json.entity_id }}",
+        "options": {
+          "timeout": 15000,
+          "redirect": {
+            "redirect": {}
+          }
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $json.access_token }}"
+            },
+            {
+              "name": "X-Organization-Id",
+              "value": "={{ $json.organization.id }}"
+            }
+          ]
+        }
+      },
+      "id": "http-b-case",
+      "name": "Load case",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1320,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Confirm the case belongs to the automation tenant, then decide whether this\n// event is a real escalation (urgent/high priority or an SLA breach).\nconst event = $('Verify signature').first().json;\nconst account = $('Login as automation').first().json;\nconst detail = $json || {};\nconst tenantOk = detail.org_id == null || account.organization.id === detail.org_id;\nconst priority = String(detail.priority || event.data.priority || event.data.current || '').toUpperCase();\nconst status = String(detail.status || '').toUpperCase();\nconst closed = ['RESOLVED', 'CLOSED', 'CANCELLED'].includes(status);\nconst dueAt = detail.due_at ? new Date(detail.due_at) : null;\nconst overdue = dueAt ? dueAt.getTime() < Date.now() : Boolean(detail.sla_breached);\nconst shouldEscalate = tenantOk && !closed && (priority === 'URGENT' || priority === 'HIGH' || overdue);\nreturn [{\n  json: {\n    should_escalate: shouldEscalate,\n    tenant_ok: tenantOk,\n    overdue,\n    priority,\n    status,\n    case_number: detail.case_number || event.data.case_number || 'unknown',\n    case_id: event.entity_id,\n    title: detail.title || event.data.title || 'n/a',\n    due_at: detail.due_at || null,\n    sla_breached: Boolean(detail.sla_breached),\n    reason: event.data.reason || 'priority change',\n    event_id: event.event_id,\n    escalation_key: event.entity_id + ':' + priority + ':' + event.event_id,\n  },\n}];",
+        "mode": "runOnceForAllItems"
+      },
+      "id": "code-b-assess",
+      "name": "Assess escalation",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1540,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "if-b-escalate-cond",
+              "leftValue": "={{ $json.should_escalate }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-b-escalate",
+      "name": "Escalate?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1760,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "automation@resolve.local",
+        "toEmail": "ops@resolve.local",
+        "subject": "=RESOLVE ESCALATION {{$json.priority}} {{$json.case_number}}",
+        "emailFormat": "text",
+        "text": "={{ ['RESOLVE critical case escalation','Case: ' + $json.case_number + ' - ' + $json.title,'Case ID: ' + $json.case_id,'Priority: ' + $json.priority,'Status: ' + $json.status,'Due at: ' + ($json.due_at || 'n/a'),'SLA breached: ' + $json.sla_breached,'Overdue: ' + $json.overdue,'Reason: ' + $json.reason,'Event ID: ' + $json.event_id,'Action: assign an owner and approve a resolution through RESOLVE (n8n never approves or executes).'].join('\\n') }}",
+        "options": {}
+      },
+      "id": "mail-b",
+      "name": "Escalate to duty manager",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        2200,
+        -120
+      ],
+      "credentials": {
+        "smtp": {
+          "id": "PqCjjSUCHeSgu7Lw",
+          "name": "RESOLVE Mailpit SMTP"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: 'escalated', case: $json.case_number, priority: $json.priority }) }}",
+        "options": {}
+      },
+      "id": "resp-b-escalated",
+      "name": "Respond escalated",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2420,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: 'no_action', reason: $json.tenant_ok ? 'not an escalation' : 'tenant mismatch' }) }}",
+        "options": {}
+      },
+      "id": "resp-b-none",
+      "name": "Respond no action",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2200,
+        120
+      ]
+    }
+  ],
+  "connections": {
+    "RESOLVE event": {
+      "main": [
+        [
+          {
+            "node": "Verify signature",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify signature": {
+      "main": [
+        [
+          {
+            "node": "Claim event id",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claim event id": {
+      "main": [
+        [
+          {
+            "node": "Merge claim",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge claim": {
+      "main": [
+        [
+          {
+            "node": "Duplicate?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Duplicate?": {
+      "main": [
+        [
+          {
+            "node": "Respond duplicate",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Login as automation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Login as automation": {
+      "main": [
+        [
+          {
+            "node": "Load case",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load case": {
+      "main": [
+        [
+          {
+            "node": "Assess escalation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assess escalation": {
+      "main": [
+        [
+          {
+            "node": "Escalate?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Escalate?": {
+      "main": [
+        [
+          {
+            "node": "Escalate to duty manager",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond no action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Escalate to duty manager": {
+      "main": [
+        [
+          {
+            "node": "Respond escalated",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "timezone": "Asia/Bangkok",
+    "executionTimeout": 300
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": [
+    {
+      "name": "resolve"
+    },
+    {
+      "name": "workflow-b"
+    }
+  ],
+  "pinData": {},
+  "versionId": "1"
+}
