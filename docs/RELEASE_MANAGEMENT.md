@@ -23,7 +23,7 @@ Current baseline: **1.0.0** (tag `v1.0.0`).
 * Branch: `main` (single-branch release line).
 * The repository-local Git identity is `RESOLVE Project <resolve@localhost>`. It is a technical
   identity for this workstation and does not impersonate a person. Global Git config is untouched.
-* No remote is configured. Pushing requires explicit owner approval.
+* Remote: `origin` points at the public GitHub repository; CI runs on every push to `main`.
 
 ## 3. What is never committed
 
@@ -93,8 +93,8 @@ A candidate is taggable only when all of these hold on the target machine:
 | Compose stack healthy | `docker compose ps` (all services up/healthy) |
 | Backend tests | `cd apps/api; ..\..\.venv\Scripts\python.exe -m pytest` → 136 passed, 1 skipped |
 | Frontend quality | `npm run typecheck`, `npm run lint` (0 errors), `npm run test -- --run` (6/6), `npm run build` |
-| HTTPS E2E | Playwright 10/10 with `RESOLVE_WEB_URL=https://192.168.1.107:8180` |
-| Full workflow | `apps/api/scripts/verify_workflow_e2e.py --base-url https://192.168.1.107:8180` → 28 steps |
+| HTTPS E2E | Playwright 10/10 with `RESOLVE_WEB_URL=https://192.168.1.10:8180` |
+| Full workflow | `apps/api/scripts/verify_workflow_e2e.py --base-url https://192.168.1.10:8180` → 28 steps |
 | Security | `scripts/verify-security.py` → 16/16 |
 | Automation | `scripts/verify-n8n-workflows.py` 9/9, plus the outbox and document-failure E2E scripts |
 | Monitoring | 13/13 targets up, 20 rules loaded, controlled alert delivered |

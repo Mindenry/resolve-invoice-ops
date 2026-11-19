@@ -8,7 +8,7 @@ section 16 of `docs/FINAL_PRODUCTION_HARDENING_REPORT.md` are closed.
 
 ## Highlights
 
-- HTTPS on `https://localhost:8180` and `https://192.168.1.107:8180` with a trusted local mkcert CA,
+- HTTPS on `https://localhost:8180` and `https://192.168.1.10:8180` with a trusted local mkcert CA,
   TLS 1.2/1.3, HSTS and secure cookies.
 - Production authentication and authorization: rotated demo credentials, disabled self-registration,
   six roles, 47 permissions, tenant isolation, self-approval block, approval/execution separation and

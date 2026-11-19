@@ -6,9 +6,9 @@
 | --- | --- |
 | Host | Windows 10 LTSC 19045, Docker Desktop 4.99.0 / Engine 29.9.3 / Compose 5.7.0 |
 | WSL2 VM | 8 GB RAM, 4 CPUs |
-| Project | `E:\Code\AI project`, Compose project `resolve` |
-| Primary URL | `https://192.168.1.107:8180` (LAN), `https://localhost:8180` (host) |
-| Certificate | mkcert local CA, SANs `resolve.local`, `192.168.1.107`, `localhost`, `127.0.0.1`, valid to 2029-02-19 |
+| Project | `C:\path\to\resolve`, Compose project `resolve` |
+| Primary URL | `https://192.168.1.10:8180` (LAN), `https://localhost:8180` (host) |
+| Certificate | mkcert local CA, SANs `resolve.local`, `192.168.1.10`, `localhost`, `127.0.0.1`, valid to 2029-02-19 |
 | LAN exposure | TCP 8180 only, Private profile, `LocalSubnet` |
 | Rollback | Native Windows services on `127.0.0.1:8090` |
 | Release | tag `v1.0.0` (see `docs/FINAL_PROJECT_CLOSURE_REPORT.md`) |
@@ -35,11 +35,11 @@ Ollama runs on the host at `:11434` and is reached with `host.docker.internal`.
 ## 3. First start
 
 ```powershell
-cd "E:\Code\AI project"
+cd "C:\path\to\resolve"
 Copy-Item .env.example .env          # fill every blank secret
 mkcert -install
 mkcert -cert-file var\certs\server.pem -key-file var\certs\server-key.pem `
-  resolve.local 192.168.1.107 localhost 127.0.0.1
+  resolve.local 192.168.1.10 localhost 127.0.0.1
 Copy-Item (Join-Path (mkcert -CAROOT).Trim() "rootCA.pem") var\certs\rootCA.pem
 docker compose --env-file .env --profile monitoring up -d --build
 .\scripts\health-check.ps1 -Deep

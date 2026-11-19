@@ -8,7 +8,7 @@ must be protected and stored off-host. Never commit them to Git.
 ### Backup
 
 ```powershell
-cd "E:\Code\AI project"
+cd "C:\path\to\resolve"
 .\scripts\backup-resolve.ps1                 # delegates to infrastructure/scripts/backup.ps1 -StorageBackend s3
 
 # or directly

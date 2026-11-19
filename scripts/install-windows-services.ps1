@@ -59,7 +59,7 @@ if (-not (Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContin
 }
 
 # Ollama models must be readable by the LocalSystem service account.
-$ollamaModels = "C:\Users\Administrator\.ollama"
+$ollamaModels = "$env:USERPROFILE\.ollama"
 if (Test-Path $ollamaModels) { & icacls $ollamaModels /grant "SYSTEM:(OI)(CI)R" /T | Out-Null }
 
 if (-not $NoStart) { & (Join-Path $Root "scripts\start-resolve.ps1") }

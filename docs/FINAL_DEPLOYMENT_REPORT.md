@@ -4,8 +4,8 @@
 
 **Date:** 2026-11-19 (Asia/Bangkok), post-reboot verification
 **Host:** `KERNELOS-PC`, Windows 10 IoT Enterprise LTSC 22H2 (19045), i5-14500, 31.7 GB RAM,
-RTX 4070 SUPER 12 GB, LAN `192.168.1.107/24`. Docker VM: 8 GB RAM / 4 CPUs.
-**Repository:** `E:\Code\AI project` (existing project; native data untouched; the Docker demo
+RTX 4070 SUPER 12 GB, LAN `192.168.1.10/24`. Docker VM: 8 GB RAM / 4 CPUs.
+**Repository:** `C:\path\to\resolve` (existing project; native data untouched; the Docker demo
 database was reseeded during verification).
 
 Status legend: **VERIFIED** (executed and inspected), **PARTIALLY VERIFIED**, **NOT VERIFIED**,
@@ -20,7 +20,7 @@ running on localhost only.
 
 ```
 macOS/Windows browser
-        │  https://192.168.1.107:8180  (single LAN entry point)
+        │  https://192.168.1.10:8180  (single LAN entry point)
         ▼
 nginx (resolve-web) ── /api, /health ──► FastAPI (resolve-api)
         │                                      │
@@ -55,8 +55,8 @@ point.
 | Purpose | URL |
 | --- | --- |
 | Windows UI | **https://localhost:8180** |
-| macOS/LAN UI | **https://192.168.1.107:8180** |
-| LAN health | **https://192.168.1.107:8180/health** |
+| macOS/LAN UI | **https://192.168.1.10:8180** |
+| LAN health | **https://192.168.1.10:8180/health** |
 | API readiness (local) | http://127.0.0.1:8100/health/ready |
 | Mailpit (local) | http://127.0.0.1:8125 |
 | n8n (local) | http://127.0.0.1:5679 |
@@ -184,7 +184,7 @@ self-approval 403. Resolution executed **COMPLETED** with SMTP email; audit/anal
 
 ## 12. LAN / macOS
 
-- Detected private LAN IP: **192.168.1.107** (Ethernet, Private).
+- Detected private LAN IP: **192.168.1.10** (Ethernet, Private).
 - Windows and LAN URL tested successfully; nginx binds `0.0.0.0:8180`.
 - Firewall: only `RESOLVE Docker Web (TCP 8180)` enabled, Private, `LocalSubnet`. The old 8090 LAN
   rule is disabled; native nginx binds `127.0.0.1:8090`.
@@ -196,7 +196,7 @@ self-approval 403. Resolution executed **COMPLETED** with SMTP email; audit/anal
 ## 13. Operations
 
 ```powershell
-cd "E:\Code\AI project"
+cd "C:\path\to\resolve"
 .\scripts\start-resolve.ps1
 .\scripts\stop-resolve.ps1
 .\scripts\restart-resolve.ps1

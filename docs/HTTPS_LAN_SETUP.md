@@ -16,7 +16,7 @@ Windows/macOS browser
 ```
 
 * Host ports: web `8180 → 443`, HTTP `127.0.0.1:8081 → 80` (redirect only).
-* Certificate: local **mkcert** CA; SANs `resolve.local`, `192.168.1.107`, `localhost`, `127.0.0.1`;
+* Certificate: local **mkcert** CA; SANs `resolve.local`, `192.168.1.10`, `localhost`, `127.0.0.1`;
   valid until **2029-02-19**.
 * HSTS `max-age=31536000; includeSubDomains`; TLS 1.2/1.3; HTTP/2 enabled.
 
@@ -29,7 +29,7 @@ mkcert -CAROOT                        # prints the CA directory
 
 New-Item -ItemType Directory -Force var\certs | Out-Null
 mkcert -cert-file var\certs\server.pem -key-file var\certs\server-key.pem `
-  resolve.local 192.168.1.107 localhost 127.0.0.1
+  resolve.local 192.168.1.10 localhost 127.0.0.1
 Copy-Item (Join-Path (mkcert -CAROOT).Trim() "rootCA.pem") var\certs\rootCA.pem -Force
 
 icacls "var\certs" /inheritance:r /grant:r "Administrators:(OI)(CI)F" "SYSTEM:(OI)(CI)F"
@@ -37,6 +37,9 @@ icacls "var\certs" /inheritance:r /grant:r "Administrators:(OI)(CI)F" "SYSTEM:(O
 
 `var/` is Git-ignored, so the private key never reaches source control. Keep `server-key.pem` and the
 mkcert CA private key out of backups that are not protected.
+
+> The examples use `192.168.1.10` as a LAN address. Replace it with your host's address in the
+> certificate SANs, `FRONTEND_URL`, `CORS_ORIGINS` and the URLs below.
 
 ## 3. nginx and Compose
 
@@ -65,8 +68,8 @@ docker compose --env-file .env up -d --force-recreate --no-deps web
 
 ```powershell
 # Windows curl uses Schannel; mkcert has no CRL/OCSP, so --ssl-no-revoke is required
-curl.exe --ssl-no-revoke -I https://192.168.1.107:8180/
-curl.exe --ssl-no-revoke https://192.168.1.107:8180/health
+curl.exe --ssl-no-revoke -I https://192.168.1.10:8180/
+curl.exe --ssl-no-revoke https://192.168.1.10:8180/health
 
 # Certificate contents
 & "C:\Program Files\Git\usr\bin\openssl.exe" x509 -in var\certs\server.pem `
@@ -88,10 +91,10 @@ openssl x509 -in ~/Downloads/rootCA.pem -noout -subject -issuer -dates
 sudo security add-trusted-cert -d -r trustRoot \
   -k /Library/Keychains/System.keychain ~/Downloads/rootCA.pem
 security verify-cert -c ~/Downloads/rootCA.pem
-curl --cacert ~/Downloads/rootCA.pem -I https://192.168.1.107:8180/
+curl --cacert ~/Downloads/rootCA.pem -I https://192.168.1.10:8180/
 ```
 
-Optional DNS name: add `192.168.1.107 resolve.local` to `/etc/hosts`, then browse
+Optional DNS name: add `192.168.1.10 resolve.local` to `/etc/hosts`, then browse
 `https://resolve.local:8180`.
 
 **No physical Mac was available during this hardening run. The commands are provided; Safari and
@@ -119,7 +122,7 @@ Required rule: TCP 8180 inbound, `Private` profile, `RemoteAddress=LocalSubnet`.
 
 ```powershell
 mkcert -cert-file var\certs\server.pem -key-file var\certs\server-key.pem `
-  resolve.local 192.168.1.107 localhost 127.0.0.1
+  resolve.local 192.168.1.10 localhost 127.0.0.1
 Copy-Item (Join-Path (mkcert -CAROOT).Trim() "rootCA.pem") var\certs\rootCA.pem -Force
 docker compose --env-file .env up -d --force-recreate --no-deps web
 ```
@@ -133,7 +136,7 @@ step. The `ResolveCertificateExpiringSoon` alert fires 30 days before expiry.
 | --- | --- |
 | Certificate warning | CA not trusted on that client, wrong host (HTTP port), or SAN mismatch |
 | Windows curl revocation error | mkcert has no CRL/OCSP: use `--ssl-no-revoke` or a browser |
-| Mac cannot connect | Check the 8180 rule, Private profile, `nc -vz 192.168.1.107 8180` |
+| Mac cannot connect | Check the 8180 rule, Private profile, `nc -vz 192.168.1.10 8180` |
 | Page loads, API 502 | `docker compose ps api`; `https://127.0.0.1:8180/health` |
 | Cookie not stored | Must use HTTPS and same-origin `/api`; check `Secure` attribute |
 | `resolve.local` fails | Add the hosts/DNS entry; SAN covers the name but DNS must resolve |

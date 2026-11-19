@@ -82,7 +82,7 @@ npx playwright test
 | `npm run typecheck` / `npm run build` | pass |
 | `npm run lint` | 0 errors, 4 fast-refresh warnings |
 | `npm test` | 6 passed |
-| `npx playwright test` | 10 passed via native LAN `http://192.168.1.107:8090` |
+| `npx playwright test` | 10 passed via native LAN `http://192.168.1.10:8090` |
 | `npx playwright test` (`RESOLVE_WEB_URL=https://127.0.0.1:8180`) | 10 passed against the Compose/nginx stack, including a real Ollama investigation |
 | Docker Compose | all core services healthy; n8n and Prometheus/Grafana health endpoints 200 |
 | Compose S3 | seed wrote 42 objects; new upload reached `INDEXED`; download byte-identical |

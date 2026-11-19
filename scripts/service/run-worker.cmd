@@ -1,4 +1,5 @@
 @echo off
-cd /d "E:\Code\AI project\apps\api"
+set "REPO=%~dp0..\.."
+pushd "%REPO%\apps\api" || exit /b 1
 set PYTHONUNBUFFERED=1
-"E:\Code\AI project\.venv\Scripts\python.exe" -m celery -A app.workers.celery_app.celery_app worker --loglevel=INFO --pool=solo --concurrency=1
+"%REPO%\.venv\Scripts\python.exe" -m celery -A app.workers.celery_app.celery_app worker --loglevel=INFO --pool=solo --concurrency=1

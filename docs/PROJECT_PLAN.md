@@ -74,7 +74,7 @@ started; the system prepares records for downstream export.
 - Native Windows deployment is running (see `docs/ONE_RUN_SETUP_REPORT.md`): PostgreSQL 18.6 +
   pgvector 0.8.1 on 55432, Memurai/Redis, Celery worker+beat, Ollama (Qwen2.5 7B + BGE-M3), Mailpit,
   FastAPI and native nginx on localhost:8090. The primary LAN deployment is Docker Compose at
-  `https://192.168.1.107:8180`.
+  `https://192.168.1.10:8180`.
 - Tesseract is installed and verified. `tha` traineddata is installed; OCR falls back to available
   languages when a requested one is missing.
 - Real local AI is configured and verified; no external LLM credentials were used. A 7B model still

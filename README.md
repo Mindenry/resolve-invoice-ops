@@ -3,9 +3,9 @@
 An invoice exception platform where the money logic is boring on purpose, the AI is only allowed to
 explain, and a person still has to approve anything that matters.
 
-[![Backend](https://github.com/Mindenry/resolve/actions/workflows/backend.yml/badge.svg)](https://github.com/Mindenry/resolve/actions/workflows/backend.yml)
-[![Frontend](https://github.com/Mindenry/resolve/actions/workflows/frontend.yml/badge.svg)](https://github.com/Mindenry/resolve/actions/workflows/frontend.yml)
-[![Security](https://github.com/Mindenry/resolve/actions/workflows/security.yml/badge.svg)](https://github.com/Mindenry/resolve/actions/workflows/security.yml)
+[![Backend](https://github.com/Mindenry/resolve-invoice-ops/actions/workflows/backend.yml/badge.svg)](https://github.com/Mindenry/resolve-invoice-ops/actions/workflows/backend.yml)
+[![Frontend](https://github.com/Mindenry/resolve-invoice-ops/actions/workflows/frontend.yml/badge.svg)](https://github.com/Mindenry/resolve-invoice-ops/actions/workflows/frontend.yml)
+[![Security](https://github.com/Mindenry/resolve-invoice-ops/actions/workflows/security.yml/badge.svg)](https://github.com/Mindenry/resolve-invoice-ops/actions/workflows/security.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 ![Command center](portfolio/screenshots/02-dashboard.png)
@@ -140,7 +140,7 @@ hardened Linux host. Those are written down in
 You need Docker with Compose. Ollama is optional.
 
 ```bash
-git clone https://github.com/Mindenry/resolve.git
+git clone https://github.com/Mindenry/resolve-invoice-ops.git
 cd resolve
 cp .env.example .env
 ```

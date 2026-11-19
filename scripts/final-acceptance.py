@@ -20,7 +20,7 @@ from typing import Any
 import httpx
 from PIL import Image, ImageDraw
 
-LAN = "https://192.168.1.107:8180"
+LAN = os.environ.get("RESOLVE_WEB_URL", "https://localhost:8180")
 API = f"{LAN}/api/v1"
 VERIFY = "var/certs/rootCA.pem"
 ORG = "northwind"

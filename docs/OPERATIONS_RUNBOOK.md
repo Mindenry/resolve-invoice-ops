@@ -4,7 +4,7 @@
 
 | Mode | Status | Entry point | Data |
 | --- | --- | --- | --- |
-| Docker Compose | **Primary / LAN** | `https://192.168.1.107:8180` | Docker volumes: `resolve_postgres_data`, `resolve_seaweedfs_data`, `resolve_n8n_data`, `resolve_grafana_data` |
+| Docker Compose | **Primary / LAN** | `https://192.168.1.10:8180` | Docker volumes: `resolve_postgres_data`, `resolve_seaweedfs_data`, `resolve_n8n_data`, `resolve_grafana_data` |
 | Native Windows | **Rollback / localhost** | `http://127.0.0.1:8090` | `resolve_live` on isolated PostgreSQL 55432 + local storage |
 
 The two deployments use separate databases and storage. Do not point both at the same database or
@@ -13,7 +13,7 @@ bucket. Native data is preserved by design; Docker was initialized with its own 
 ## 2. Start, stop, restart
 
 ```powershell
-cd "E:\Code\AI project"
+cd "C:\path\to\resolve"
 
 .\scripts\start-resolve.ps1        # auto: Docker first, native fallback
 .\scripts\start-resolve.ps1 -Mode docker
@@ -52,7 +52,7 @@ Ollama for a real generation.
 
 | Purpose | Primary Docker |
 | --- | --- |
-| UI | `https://localhost:8180` / `https://192.168.1.107:8180` |
+| UI | `https://localhost:8180` / `https://192.168.1.10:8180` |
 | Health | `/health` through 8180 |
 | API | `127.0.0.1:8100` |
 | Mailpit | `127.0.0.1:8125` |
@@ -117,7 +117,7 @@ Post-reboot Docker automation log: `var\logs\post-reboot-docker.log`.
 
 ## 9. Access and security
 
-- LAN URL: `https://192.168.1.107:8180` (valid mkcert certificate; TLS 1.2/1.3, HSTS).
+- LAN URL: `https://192.168.1.10:8180` (valid mkcert certificate; TLS 1.2/1.3, HSTS).
 - Firewall: `RESOLVE Docker Web (TCP 8180)`, Private, LocalSubnet. The old 8090 LAN rule is disabled.
 - Management UIs are loopback only: n8n `127.0.0.1:5679`, Grafana `127.0.0.1:3101`, Prometheus
   `127.0.0.1:9190`, Alertmanager `127.0.0.1:9193`, Mailpit `127.0.0.1:8125`.
@@ -128,7 +128,7 @@ Post-reboot Docker automation log: `var\logs\post-reboot-docker.log`.
 
 ```powershell
 # Stack health, targets and alerts
-curl.exe --ssl-no-revoke https://192.168.1.107:8180/health
+curl.exe --ssl-no-revoke https://192.168.1.10:8180/health
 curl.exe http://127.0.0.1:9190/api/v1/targets
 curl.exe http://127.0.0.1:9190/api/v1/alerts
 

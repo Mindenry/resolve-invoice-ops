@@ -3,7 +3,7 @@
 > **Historical document.** For the current verified state see `docs/FINAL_PRODUCTION_HARDENING_REPORT.md`.
 
 > **Post-reboot update:** Docker Compose is now the verified primary deployment on
-> `https://192.168.1.107:8180` with PostgreSQL 16 + pgvector 0.8.7, SeaweedFS S3, local Ollama, and the
+> `https://192.168.1.10:8180` with PostgreSQL 16 + pgvector 0.8.7, SeaweedFS S3, local Ollama, and the
 > full workflow. The native services remain as a **localhost rollback** (`127.0.0.1:8090`). See
 > [`FINAL_DEPLOYMENT_REPORT.md`](FINAL_DEPLOYMENT_REPORT.md) and
 > [`DOCKER_DEPLOYMENT.md`](DOCKER_DEPLOYMENT.md) for the authoritative post-reboot results. The
@@ -13,8 +13,8 @@
 **Date:** 2026-11-19 (Asia/Bangkok)
 **Host:** `KERNELOS-PC` — Windows 10 IoT Enterprise LTSC 22H2 (10.0.19045), Intel i5-14500
 (14C/20T), 31.7 GB RAM, NVIDIA RTX 4070 SUPER 12 GB, 239 GB free.
-**LAN:** `192.168.1.107/24`, gateway `192.168.1.1`, network profile now **Private**.
-**Repository:** `E:\Code\AI project` (existing RESOLVE; native data untouched; Docker demo data was
+**LAN:** `192.168.1.10/24`, gateway `192.168.1.1`, network profile now **Private**.
+**Repository:** `C:\path\to\resolve` (existing RESOLVE; native data untouched; Docker demo data was
 reseeded during post-reboot verification).
 
 Status legend: **VERIFIED** = executed and inspected here; **PARTIALLY VERIFIED** = part of it
@@ -54,7 +54,7 @@ and "MinIO archived" rows later in this historical report.
 | Real AI investigation | **VERIFIED (quality limited)** | provider=ollama; validated citations; no AI execution |
 | OCR in Docker | **VERIFIED** | Tesseract 5.4 eng/tha; live confidence 0.934 |
 | Full 27-step workflow | **VERIFIED** | through nginx/LAN; approval, SMTP, audit, analytics |
-| Frontend (production bundle) | **VERIFIED** | Playwright 10/10 via `https://192.168.1.107:8180` |
+| Frontend (production bundle) | **VERIFIED** | Playwright 10/10 via `https://192.168.1.10:8180` |
 | LAN listener | **VERIFIED** | nginx `0.0.0.0:8180`; only 8180 firewall rule enabled |
 | macOS client | **PARTIALLY VERIFIED** | no physical Mac; LAN path tested from Windows; macOS commands provided |
 | Firewall | **VERIFIED** | Private + LocalSubnet, TCP 8180 only; 8090 rule disabled |
@@ -83,8 +83,8 @@ The pre-existing system PostgreSQL on 5432 was not modified.
 | Purpose | URL |
 | --- | --- |
 | Windows UI (Docker) | `https://localhost:8180` |
-| macOS/LAN UI | `https://192.168.1.107:8180` |
-| LAN health | `https://192.168.1.107:8180/health` |
+| macOS/LAN UI | `https://192.168.1.10:8180` |
+| LAN health | `https://192.168.1.10:8180/health` |
 | API readiness (local) | `http://127.0.0.1:8100/health/ready` |
 | Mailpit (local) | `http://127.0.0.1:8125` |
 | n8n (local) | `http://127.0.0.1:5679` |
@@ -162,7 +162,7 @@ The live DB gained one document after that backup, hence 19 documents/chunks in 
 
 ## 7. End-to-end verification
 
-The 27-step workflow ran through the **LAN URL** (`http://192.168.1.107:8090`):
+The 27-step workflow ran through the **LAN URL** (`http://192.168.1.10:8090`):
 
 login → vendor → PO → PDF upload → processing → extraction (10 fields) → correction → review →
 invoice creation (idempotent) → validation → 2 exceptions → case → assignment → real Ollama
@@ -225,7 +225,7 @@ therefore **not built or started**, and no Docker service health is claimed.
 1. **Reboot required** for WSL2/Docker. The resume task finishes the Compose path; until then only the
    native stack is running.
 2. **No physical Mac** was available. The LAN listener, firewall scope and full workflow were tested
-   from the Windows host against `192.168.1.107`; macOS commands are provided in
+   from the Windows host against `192.168.1.10`; macOS commands are provided in
    `docs/LAN_ACCESS_GUIDE.md`. Safari was not tested.
 3. **HTTP on the LAN** means refresh cookies are not `Secure` in this development-mode deployment.
    Put nginx behind HTTPS (self-signed for LAN or a real certificate) before using real data.
@@ -262,4 +262,4 @@ Restart-Service RESOLVE-API,RESOLVE-Worker
 ```
 
 After the reboot, inspect `var\logs\post-reboot-docker.log`; the Docker UI will be on
-`https://localhost:8180` (LAN `https://192.168.1.107:8180` after adding a Private-profile 8180 rule).
+`https://localhost:8180` (LAN `https://192.168.1.10:8180` after adding a Private-profile 8180 rule).

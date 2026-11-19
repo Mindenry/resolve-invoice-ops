@@ -3,18 +3,18 @@
 > **Historical document.** For the current verified state see `docs/FINAL_PRODUCTION_HARDENING_REPORT.md`.
 
 **Date:** 2026-11-19
-**Scope:** independent audit of the existing repository at `E:\Code\AI project`, defect fixing, and
+**Scope:** independent audit of the existing repository at `C:\path\to\resolve`, defect fixing, and
 verification against real PostgreSQL, real OCR, a real Celery worker, live HTTP APIs and a real
 browser.
 **Verdict:** core product is functional and independently verified on PostgreSQL. The initial audit
 resolved **pgvector** and **real local AI**; the post-reboot pass resolved **Docker Compose**, which is
-now the primary LAN deployment at `https://192.168.1.107:8180`. The native stack remains as a
+now the primary LAN deployment at `https://192.168.1.10:8180`. The native stack remains as a
 localhost rollback. A physical macOS client was not available for direct testing.
 
 ### Deployment addendum (2026-11-19)
 
 - Native Windows services are running: PostgreSQL 18.6 + **pgvector 0.8.1**, Memurai/Redis, Celery
-  worker/beat, Ollama (Qwen2.5 7B + BGE-M3), Mailpit, FastAPI and nginx on the LAN at `192.168.1.107:8090`.
+  worker/beat, Ollama (Qwen2.5 7B + BGE-M3), Mailpit, FastAPI and nginx on the LAN at `192.168.1.10:8090`.
 - A real 27-step workflow ran through the LAN URL with a **real Ollama investigation**, approval and
   SMTP execution; Playwright 10/10 passed against the production nginx bundle.
 - pgvector: `vector(1024)`, JSON backfill, HNSW index and an actual `Index Scan` verified; new uploads
@@ -348,13 +348,13 @@ and reports healthy:
 **Verified native one-command start (Windows):**
 
 ```powershell
-cd "E:\Code\AI project"
+cd "C:\path\to\resolve"
 .\scripts\start-resolve.ps1
 .\scripts\status-resolve.ps1
 .\scripts\health-check.ps1 -Deep
 ```
 
-Then open `https://localhost:8180` (Windows) or `https://192.168.1.107:8180` (LAN). The native
+Then open `https://localhost:8180` (Windows) or `https://192.168.1.10:8180` (LAN). The native
 rollback is `http://127.0.0.1:8090`. Stop with
 `.\scripts\stop-resolve.ps1`.
 
@@ -362,19 +362,19 @@ Manual development start:
 
 ```powershell
 # 1. Backend (from apps/api)
-cd "E:\Code\AI project\apps\api"
+cd "C:\path\to\resolve\apps\api"
 $env:DATABASE_URL = "postgresql+psycopg://resolve:resolve@127.0.0.1:5432/resolve"
 ..\..\.venv\Scripts\python.exe -m alembic upgrade head
 ..\..\.venv\Scripts\python.exe -m app.scripts.seed_demo        # demo only
 ..\..\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 
 # 2. Frontend (from apps/web)
-cd "E:\Code\AI project\apps\web"
+cd "C:\path\to\resolve\apps\web"
 npm ci
 npm run dev        # http://localhost:5173 (proxies /api to :8000)
 
 # 3. Optional worker + beat (Redis must be reachable)
-cd "E:\Code\AI project\apps\api"
+cd "C:\path\to\resolve\apps\api"
 $env:TASK_RUNNER = "celery"
 $env:CELERY_BROKER_URL = "redis://127.0.0.1:6379/0"
 ..\..\.venv\Scripts\python.exe -m celery -A app.workers.celery_app.celery_app worker --pool=solo --loglevel=INFO
@@ -390,7 +390,7 @@ Demo login: `admin@example.com` / `the password in var/secrets/demo-credentials.
 
 ```powershell
 # Lint
-cd "E:\Code\AI project"
+cd "C:\path\to\resolve"
 .\.venv\Scripts\python.exe -m ruff check apps/api
 
 # Backend - SQLite (133 passed, 1 PostgreSQL-only skip)

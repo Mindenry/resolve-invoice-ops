@@ -1,6 +1,6 @@
 # Portfolio capture QA
 
-- App: https://192.168.1.107:8180
+- App: https://192.168.1.10:8180
 - Viewports tested: desktop 1440x900, tablet 834x1112, mobile 390x844
 - Routes per viewport: 8
 - Horizontal overflow failures: 0

@@ -31,7 +31,7 @@ is in `docs/FINAL_PRODUCTION_HARDENING_REPORT.md`.
 
 - **macOS client:** no physical Mac was available. The LAN URL, firewall, login/refresh, upload,
   download, AI investigation and approval were exercised from Windows against
-  `192.168.1.107:8180` over HTTPS. Safari/Keychain trust was not tested; the CA and commands are in
+  `192.168.1.10:8180` over HTTPS. Safari/Keychain trust was not tested; the CA and commands are in
   `docs/HTTPS_LAN_SETUP.md`.
 - **Celery beat:** schedules observed working, but not over a multi-hour window.
 - **AI quality:** a 7B local model can produce imprecise root-cause wording. Citations are validated;

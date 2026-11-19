@@ -57,7 +57,7 @@ resolve-worker-1            Up
 ## 1. What the five workstreams achieved
 
 1. **HTTPS & LAN security** — nginx serves TLS 1.2/1.3 on 8180 with a local mkcert CA
-   (`resolve.local`, `192.168.1.107`, `localhost`, `127.0.0.1`; valid to 2029-02-19). HTTP is a
+   (`resolve.local`, `192.168.1.10`, `localhost`, `127.0.0.1`; valid to 2029-02-19). HTTP is a
    loopback redirect. Only TCP 8180 is allowed from `LocalSubnet`. All management ports are loopback
    or Docker-internal. Verified with curl, PowerShell, httpx and Playwright.
 2. **Demo risk removal & production config** — six accounts rotated to one strong random password in
@@ -125,10 +125,10 @@ Grafana 13.3.1, nginx/redis/postgres/celery/blackbox/node exporters. Ollama runs
 | Client | URL |
 | --- | --- |
 | Windows | `https://localhost:8180` |
-| Windows (LAN IP) | `https://192.168.1.107:8180` |
-| macOS/LAN | `https://192.168.1.107:8180` after trusting `var/certs/rootCA.pem` |
+| Windows (LAN IP) | `https://192.168.1.10:8180` |
+| macOS/LAN | `https://192.168.1.10:8180` after trusting `var/certs/rootCA.pem` |
 | Optional name | `https://resolve.local:8180` (add a hosts/DNS entry) |
-| Health | `https://192.168.1.107:8180/health` |
+| Health | `https://192.168.1.10:8180/health` |
 
 macOS trust steps (copy the CA, `security add-trusted-cert -d -r trustRoot …`, verify with
 `security verify-cert`) are in `docs/HTTPS_LAN_SETUP.md` and `docs/LAN_ACCESS_GUIDE.md`.
@@ -257,13 +257,13 @@ $env:RESOLVE_DEMO_PASSWORD = ((Get-Content var\secrets\demo-credentials.txt |
   Select-String "^admin@example.com=").Line.Split("=",2)[1]).Trim()
 
 docker compose --env-file .env --profile monitoring ps
-curl --ssl-no-revoke https://192.168.1.107:8180/health
+curl --ssl-no-revoke https://192.168.1.10:8180/health
 
 .\.venv\Scripts\python.exe scripts\verify-security.py
 .\.venv\Scripts\python.exe scripts\verify-n8n-workflows.py
 .\.venv\Scripts\python.exe scripts\verify-resolve-n8n-e2e.py
-.\.venv\Scripts\python.exe apps\api\scripts\verify_workflow_e2e.py --base-url https://192.168.1.107:8180
-cd apps\web; $env:RESOLVE_WEB_URL="https://192.168.1.107:8180"; npx playwright test
+.\.venv\Scripts\python.exe apps\api\scripts\verify_workflow_e2e.py --base-url https://192.168.1.10:8180
+cd apps\web; $env:RESOLVE_WEB_URL="https://192.168.1.10:8180"; npx playwright test
 ```
 
 No secrets are included in this report. Credentials live in `var/secrets/demo-credentials.txt`;

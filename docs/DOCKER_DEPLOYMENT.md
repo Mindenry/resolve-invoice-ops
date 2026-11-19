@@ -59,7 +59,7 @@ uses **SeaweedFS 4.54** as the S3-compatible object store:
 ## 5. Start / stop / restart
 
 ```powershell
-cd "E:\Code\AI project"
+cd "C:\path\to\resolve"
 
 # Primary (Docker) — starts Docker Desktop via Explorer if needed, up -d, waits for health
 .\scripts\start-docker.ps1
@@ -109,7 +109,7 @@ docker compose restart api worker
   `Index Scan using ix_document_chunks_embedding_vec`.
 - Retrieval mode `hybrid+pgvector`; new embeddings synced.
 - Full 27-step workflow completed, including real AI investigation and SMTP execution.
-- Playwright 10/10 against `https://192.168.1.107:8180`.
+- Playwright 10/10 against `https://192.168.1.10:8180`.
 - OCR in the API container: Tesseract eng+tha, live PNG confidence **0.955**, 7 fields extracted.
 - 46 objects in `resolve-documents` after seed + verification uploads.
 - Backup/restore: DB and 42 objects restored into separate targets; 42/42 SHA-256 hashes matched.

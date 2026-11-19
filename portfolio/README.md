@@ -5,7 +5,7 @@ deterministic financial controls with evidence-grounded AI investigation and hum
 runs as a verified Docker deployment with HTTPS, automation, observability and backup/restore.
 
 **This portfolio is the story of a working system, not a mock-up.** Every screenshot comes from the
-running deployment (`https://192.168.1.107:8180`), and every quality claim is backed by an executed
+running deployment (`https://192.168.1.10:8180`), and every quality claim is backed by an executed
 test run recorded in the repository.
 
 ## Read in this order

@@ -67,7 +67,7 @@ try {
     }
     if ($healthy) {
         Write-Log "Docker Compose stack is healthy at https://127.0.0.1:8180"
-        Write-Log "LAN URL: https://192.168.1.107:8180 (Private-profile firewall rule required)."
+        Write-Log "LAN URL: https://<host-LAN-IP>:8180 (Private-profile firewall rule required)."
     } else {
         Write-Log "Compose started but the web health check failed. Inspect: docker compose logs api web worker"
     }

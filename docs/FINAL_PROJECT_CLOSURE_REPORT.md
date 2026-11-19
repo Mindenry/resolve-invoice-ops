@@ -4,7 +4,7 @@
 **Release:** v1.0.0
 **Source baseline commit:** `466d923467081c55e29b86081598b1e362116555`
 **Release tag:** `v1.0.0` (annotated; the tag commit also contains this report)
-**Deployment:** Docker Compose, `https://192.168.1.107:8180` and `https://localhost:8180`
+**Deployment:** Docker Compose, `https://192.168.1.10:8180` and `https://localhost:8180`
 **Status:** **FINALIZED** for portfolio/demo use and controlled LAN evaluation. Not approved for real
 financial data until the external items in section 17 are closed.
 
@@ -149,10 +149,10 @@ Decimal precision was asserted through the API and direct SQL (`NUMERIC(18,4)`).
 
 | Purpose | URL |
 | --- | --- |
-| Windows / LAN application | `https://192.168.1.107:8180` |
+| Windows / LAN application | `https://192.168.1.10:8180` |
 | Host loopback | `https://localhost:8180` |
 | Optional name | `https://resolve.local:8180` (add a hosts entry) |
-| Health | `https://192.168.1.107:8180/health` |
+| Health | `https://192.168.1.10:8180/health` |
 | n8n (host only) | `http://127.0.0.1:5679` |
 | Grafana (host only) | `http://127.0.0.1:3101` |
 | Prometheus (host only) | `http://127.0.0.1:9190` |
@@ -180,7 +180,7 @@ tokens or personal data are visible.
 ## 16. Demo instructions
 
 1. `.\scripts\start-resolve.ps1` then `.\scripts\health-check.ps1 -Deep`.
-2. Open `https://192.168.1.107:8180` and confirm the certificate.
+2. Open `https://192.168.1.10:8180` and confirm the certificate.
 3. Use the credentials from `var/secrets/demo-credentials.txt` (never from slides): admin, approver,
    viewer, plus the six-role demo accounts.
 4. Follow `portfolio/DEMO_SCRIPT.md` (5–10 minutes) or `portfolio/DEMO_SCENARIOS.md`.

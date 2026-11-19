@@ -3,7 +3,7 @@
 ## Before the interview
 
 1. Start the stack: `.\scripts\start-resolve.ps1` and `.\scripts\health-check.ps1 -Deep`.
-2. Open Chrome at `https://192.168.1.107:8180` and confirm the certificate is valid.
+2. Open Chrome at `https://192.168.1.10:8180` and confirm the certificate is valid.
 3. Have credentials ready out-of-band (never in slides): admin, approver, viewer, from
    `var/secrets/demo-credentials.txt`.
 4. Open a second tab at `http://127.0.0.1:3101` (Grafana) and a third at `http://127.0.0.1:5679`

@@ -1,4 +1,6 @@
 @echo off
-copy /Y "E:\Code\AI project\infrastructure\nginx\resolve-lan.conf" "C:\tools\nginx-1.31.8\conf\resolve-lan.conf" >nul
-cd /d "C:\tools\nginx-1.31.8"
-nginx.exe -p "C:/tools/nginx-1.31.8" -c "C:/tools/nginx-1.31.8/conf/resolve-lan.conf" -g "daemon off;"
+if "%NGINX_HOME%"=="" set "NGINX_HOME=C:\nginx"
+set "REPO=%~dp0..\.."
+copy /Y "%REPO%\infrastructure\nginx\resolve-lan.conf" "%NGINX_HOME%\conf\resolve-lan.conf" >nul
+pushd "%NGINX_HOME%"
+nginx.exe -p "%NGINX_HOME%" -c "%NGINX_HOME%/conf/resolve-lan.conf" -g "daemon off;"

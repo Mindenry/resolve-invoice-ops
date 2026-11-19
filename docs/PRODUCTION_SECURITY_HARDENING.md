@@ -14,7 +14,7 @@ loopback-only rollback path.
 | `SECRET_KEY` | 64 chars, random | replaces every development default |
 | `CREDENTIAL_ENCRYPTION_KEY` | 64 chars, random | encrypts integration credentials |
 | `CORS_ORIGINS` | four HTTPS origins | no wildcard |
-| `FRONTEND_URL` | `https://192.168.1.107:8180` | used in links and emails |
+| `FRONTEND_URL` | `https://192.168.1.10:8180` | used in links and emails |
 | Refresh cookie | `Secure`, `HttpOnly`, `SameSite=Lax` | issued only over HTTPS |
 | Access token | JWT HS256, 30 min | rotating refresh tokens, 14 days |
 | Password hashing | Argon2 | via `argon2-cffi` |
@@ -123,7 +123,7 @@ No port forwarding or public exposure was configured. Use a VPN for remote acces
 
 ## 6. Transport security
 
-* TLS 1.2/1.3, local mkcert chain, SANs `resolve.local`, `192.168.1.107`, `localhost`, `127.0.0.1`.
+* TLS 1.2/1.3, local mkcert chain, SANs `resolve.local`, `192.168.1.10`, `localhost`, `127.0.0.1`.
 * HSTS `max-age=31536000; includeSubDomains`.
 * HTTP on 8081 redirects to HTTPS and is loopback-only.
 * `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`,

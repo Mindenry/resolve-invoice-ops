@@ -9,15 +9,15 @@ and proxies `/api` and `/health` to the loopback API. HTTP exists only as a loca
 | From | URL |
 | --- | --- |
 | Windows | **https://localhost:8180** |
-| macOS / LAN | **https://192.168.1.107:8180** |
-| Optional name | **https://resolve.local:8180** (only if you add a hosts/DNS entry for 192.168.1.107) |
-| LAN health | **https://192.168.1.107:8180/health** |
+| macOS / LAN | **https://192.168.1.10:8180** |
+| Optional name | **https://resolve.local:8180** (only if you add a hosts/DNS entry for 192.168.1.10) |
+| LAN health | **https://192.168.1.10:8180/health** |
 | HTTP redirect (host only) | `http://127.0.0.1:8081/` → `https://…:8180` |
 | API (host only) | `http://127.0.0.1:8100` |
 
-Certificate SANs: `resolve.local`, `localhost`, `192.168.1.107`, `127.0.0.1`.
+Certificate SANs: `resolve.local`, `localhost`, `192.168.1.10`, `127.0.0.1`.
 Certificate issuer: local **mkcert** CA, valid until **2029-02-19**.
-Root CA file: `E:\Code\AI project\var\certs\rootCA.pem` (public certificate only).
+Root CA file: `C:\path\to\resolve\var\certs\rootCA.pem` (public certificate only).
 
 ## 2. Exposure
 
@@ -44,7 +44,7 @@ sudo security add-trusted-cert -d -r trustRoot \
   -k /Library/Keychains/System.keychain ~/Downloads/rootCA.pem
 
 # Verify the server chain and hostname
-curl --cacert ~/Downloads/rootCA.pem -I https://192.168.1.107:8180/
+curl --cacert ~/Downloads/rootCA.pem -I https://192.168.1.10:8180/
 security verify-cert -c ~/Downloads/rootCA.pem
 ```
 
@@ -55,7 +55,7 @@ same certificate into **Keychain Access → System/Login → Certificates → Al
 For `resolve.local`, add this to `/etc/hosts` on the Mac:
 
 ```
-192.168.1.107 resolve.local
+192.168.1.10 resolve.local
 ```
 
 **No physical Mac was available during this run. The commands above are provided; Safari/Keychain
@@ -64,22 +64,22 @@ trust is NOT TESTED on a real Mac.**
 ## 4. Verify from macOS Terminal
 
 ```bash
-nc -vz 192.168.1.107 8180
-curl --cacert ~/Downloads/rootCA.pem -s https://192.168.1.107:8180/health
+nc -vz 192.168.1.10 8180
+curl --cacert ~/Downloads/rootCA.pem -s https://192.168.1.10:8180/health
 
 # Login using the rotated password from the secure file
 read -r RESOLVE_PASSWORD < /dev/tty   # paste the admin password, it is not echoed as a command
 curl --cacert ~/Downloads/rootCA.pem -s -c cookies.txt \
   -H 'Content-Type: application/json' \
   -d "{\"email\":\"admin@example.com\",\"password\":\"$RESOLVE_PASSWORD\",\"organization_slug\":\"northwind\"}" \
-  https://192.168.1.107:8180/api/v1/auth/login | python3 -m json.tool | head -20
+  https://192.168.1.10:8180/api/v1/auth/login | python3 -m json.tool | head -20
 
 curl --cacert ~/Downloads/rootCA.pem -s -b cookies.txt -c cookies.txt \
   -H 'Content-Type: application/json' -d '{}' \
-  https://192.168.1.107:8180/api/v1/auth/refresh | python3 -m json.tool | head -10
+  https://192.168.1.10:8180/api/v1/auth/refresh | python3 -m json.tool | head -10
 ```
 
-Then open `https://192.168.1.107:8180` in Chrome and Safari:
+Then open `https://192.168.1.10:8180` in Chrome and Safari:
 
 1. Confirm the certificate is valid and the URL is HTTPS.
 2. Login with a demo account using the password in `var/secrets/demo-credentials.txt`.
@@ -92,7 +92,7 @@ Then open `https://192.168.1.107:8180` in Chrome and Safari:
 - Valid chain with `curl --ssl-no-revoke --cacert var/certs/rootCA.pem` → **200**.
 - Windows system trust store (mkcert root installed) → **200**.
 - HTTP `127.0.0.1:8081` → **301** to HTTPS.
-- Playwright **10/10** against `https://192.168.1.107:8180` with certificate verification enabled.
+- Playwright **10/10** against `https://192.168.1.10:8180` with certificate verification enabled.
 - Refresh cookie: `Secure`, `HttpOnly`, `SameSite=Lax`.
 - HSTS, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` present.
 - Windows curl/Schannel may require `--ssl-no-revoke` because mkcert has no CRL/OCSP endpoint; this is
@@ -103,9 +103,9 @@ Then open `https://192.168.1.107:8180` in Chrome and Safari:
 Certificate expires **2029-02-19**. To renew:
 
 ```powershell
-cd "E:\Code\AI project"
+cd "C:\path\to\resolve"
 mkcert -cert-file var\certs\server.pem -key-file var\certs\server-key.pem `
-  resolve.local 192.168.1.107 localhost 127.0.0.1
+  resolve.local 192.168.1.10 localhost 127.0.0.1
 Copy-Item (Join-Path (mkcert -CAROOT).Trim() "rootCA.pem") var\certs\rootCA.pem -Force
 docker compose --env-file .env up -d --force-recreate --no-deps web
 ```

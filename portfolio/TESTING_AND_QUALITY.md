@@ -94,7 +94,7 @@ find a real double-decision bug in the most safety-critical path.
 
 ## 5. End-to-end workflow (28 steps)
 
-Run against `https://192.168.1.107:8180`:
+Run against `https://192.168.1.10:8180`:
 
 1. login as org admin; 2. profile; 3. create vendor; 4. create PO; 5. upload document; 6. OCR/parse;
 7. extract 10 fields; 8. correct a field; 9. approve extraction; 10. create invoice; 11. idempotent
@@ -141,7 +141,7 @@ cd apps/web; npx playwright test          # with RESOLVE_WEB_URL and RESOLVE_DEM
 .\.venv\Scripts\python.exe scripts\final-acceptance.py
 .\.venv\Scripts\python.exe scripts\verify-security.py
 .\.venv\Scripts\python.exe scripts\verify-n8n-workflows.py
-.\.venv\Scripts\python.exe apps\api\scripts\verify_workflow_e2e.py --base-url https://192.168.1.107:8180
+.\.venv\Scripts\python.exe apps\api\scripts\verify_workflow_e2e.py --base-url https://192.168.1.10:8180
 ```
 
 Evidence files: `docs/FINAL_ACCEPTANCE_RESULTS.md`, `portfolio/qa/UX_REPORT.md`,

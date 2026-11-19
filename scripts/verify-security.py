@@ -11,7 +11,7 @@ from pathlib import Path
 
 import httpx
 
-LAN = "https://192.168.1.107:8180"
+LAN = os.environ.get("RESOLVE_WEB_URL", "https://localhost:8180")
 API = f"{LAN}/api/v1"
 VERIFY = "var/certs/rootCA.pem"
 
@@ -116,7 +116,7 @@ def main() -> int:
     )
     for name, port in [("n8n", 5679), ("grafana", 3101), ("prometheus", 9190), ("api", 8100)]:
         try:
-            httpx.get(f"http://192.168.1.107:{port}/", timeout=4)
+            httpx.get(f"http://192.168.1.10:{port}/", timeout=4)
             reachable = True
         except httpx.HTTPError:
             reachable = False

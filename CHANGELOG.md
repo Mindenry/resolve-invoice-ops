@@ -34,7 +34,7 @@ All notable changes to RESOLVE. Dates are ISO-8601.
 ### Production hardening: HTTPS, security, automation, observability, release baseline
 
 - **HTTPS/LAN:** nginx serves TLS 1.2/1.3 on port 8180 using a local mkcert CA with SANs
-  `resolve.local`, `192.168.1.107`, `localhost`, `127.0.0.1` (valid to 2029-02-19). HTTP is a
+  `resolve.local`, `192.168.1.10`, `localhost`, `127.0.0.1` (valid to 2029-02-19). HTTP is a
   localhost-only redirect on 8081. HSTS, CSP-adjacent headers and single-valued security headers are
   enforced; only TCP 8180 is allowed from `LocalSubnet` on the Private profile.
 - **Credential rotation:** every demo account password was rotated to a strong random value stored in
