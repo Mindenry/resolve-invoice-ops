@@ -184,6 +184,11 @@ chore: establish RESOLVE verified deployment baseline
 vendors, 23 purchase orders, 106 invoices, 17 documents, 48 cases, 149 exceptions, 741 audit rows,
 16 chunks.
 
+A second backup produced through the installed scheduled path —
+`backups/compose-20261119-213454` — contains 69 objects, 110 invoices, 59 cases, 21 documents, 157
+exceptions, 892 audit rows and 20 chunks. The `RESOLVE-Daily-Backup` task runs it daily at 02:30 and
+the freshness metric is scraped by Prometheus.
+
 Current live counts after later verification runs: 110 invoices, 59 cases, 21 documents, 157
 exceptions, 889 audit rows, 20 chunks, 69 S3 objects.
 
@@ -225,8 +230,9 @@ reads/mutations denied, self-approval denied, and direct PostgreSQL assertions.
   Rate-limit storage is in-process memory; move to Redis before scaling the API.
 * **Demo workspace** — still present with synthetic data; must be removed or re-keyed before real
   data.
-* **Backup scheduling** — scripts and verification exist; a daily Windows scheduled task should be
-  confirmed/installed for unattended backups.
+* **Backup retention** — the daily task (`RESOLVE-Daily-Backup`, 02:30) runs and has produced a
+  verified backup, and a 26-hour staleness alert exists. Retention/pruning is intentionally manual so
+  no backup is deleted automatically; copy backups off-host.
 * Prometheus holds 15 days; metrics history is not backed up.
 
 ## 16. Required before real financial data

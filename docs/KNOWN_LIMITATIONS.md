@@ -36,8 +36,9 @@ is in `docs/FINAL_PRODUCTION_HARDENING_REPORT.md`.
 - **Celery beat:** schedules observed working, but not over a multi-hour window.
 - **AI quality:** a 7B local model can produce imprecise root-cause wording. Citations are validated;
   invalid ones are stored/flagged. External provider quality and cost are unverified.
-- **Backup scheduling:** scripts, verification and a Prometheus freshness metric exist; confirm or
-  install the daily Windows scheduled task for unattended backups.
+- **Backup scheduling:** the `RESOLVE-Daily-Backup` task runs daily at 02:30, has produced a verified
+  backup through the scheduled path, and freshness is exported to Prometheus. Pruning is manual by
+  design; copy backups off-host.
 - **Docker Desktop:** the engine occasionally exits. A watchdog runs every minute and Compose has
   restart policies, but this is a workstation runtime, not a server runtime.
 - **Rate limiting:** the Docker userland proxy rewrites client IPs to the gateway, so LAN clients

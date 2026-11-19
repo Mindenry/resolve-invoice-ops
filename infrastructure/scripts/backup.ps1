@@ -7,7 +7,8 @@ param(
   [string]$StorageBackend
 )
 
-$ErrorActionPreference = "Stop"
+# Native tools write progress to stderr; each critical call is checked via $LASTEXITCODE.
+$ErrorActionPreference = "Continue"
 
 function Get-DotEnvValue([string]$Key) {
   $line = Get-Content ".env" -ErrorAction SilentlyContinue |
