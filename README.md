@@ -1,152 +1,143 @@
-<div align="center">
-
 # RESOLVE
 
-**Evidence-grounded invoice exception management — deterministic controls, local AI investigation, human approval.**
+An invoice exception platform where the money logic is boring on purpose, the AI is only allowed to
+explain, and a person still has to approve anything that matters.
 
 [![Backend](https://github.com/Mindenry/resolve/actions/workflows/backend.yml/badge.svg)](https://github.com/Mindenry/resolve/actions/workflows/backend.yml)
 [![Frontend](https://github.com/Mindenry/resolve/actions/workflows/frontend.yml/badge.svg)](https://github.com/Mindenry/resolve/actions/workflows/frontend.yml)
-[![Infrastructure](https://github.com/Mindenry/resolve/actions/workflows/infrastructure.yml/badge.svg)](https://github.com/Mindenry/resolve/actions/workflows/infrastructure.yml)
 [![Security](https://github.com/Mindenry/resolve/actions/workflows/security.yml/badge.svg)](https://github.com/Mindenry/resolve/actions/workflows/security.yml)
-[![Release](https://img.shields.io/github/v/tag/Mindenry/resolve?label=release)](https://github.com/Mindenry/resolve/tags)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-</div>
+![Command center](portfolio/screenshots/02-dashboard.png)
 
-![RESOLVE command center](portfolio/screenshots/02-dashboard.png)
+The screenshots are from the demo workspace, not a mock-up.
 
-RESOLVE is a full-stack platform for accounts-payable exceptions. It detects invoice discrepancies
-with deterministic, versioned rules, investigates them with evidence-grounded local AI, and resolves
-them through approvals that the requester cannot bypass.
+I built this as a portfolio project, but I tried to treat it like something that would actually run in
+an office: HTTPS, real backups, monitoring, and a demo workspace that behaves like a real one.
 
-The design principle is simple: **code decides money and state; AI explains and recommends; a human
-approves.** Every AI citation must resolve to a real record in the same organization, and every
-financial action is idempotent and audited.
+Most of the work in accounts payable is not spotting the bad invoice. Detection is a rule. The slow
+part is everything after: finding the contract, checking the PO, figuring out what happened last time,
+deciding who is allowed to approve, and proving months later why the invoice was paid or rejected.
 
----
+So the project is built around that gap. Rules catch the problem. An investigation collects evidence.
+A resolution has to go through an approval that the person who proposed it cannot give themselves.
+And every step leaves a record.
 
-## Why this exists
-
-Detecting a duplicate invoice or a VAT error is the easy part. The expensive work is the
-investigation: finding the contract, comparing the PO, checking prior cases, deciding who may
-approve, proving the decision later, and making sure the invoice is never paid twice.
-
-| Principle | Implementation |
-| --- | --- |
-| **Deterministic first** | `Decimal` / `NUMERIC(18,4)` money math, tolerance rules, duplicate fingerprints, validated state machines |
-| **Evidence, not prose** | Every AI claim is re-validated against organization-scoped documents, pages, chunks, invoices and cases; invalid citations are flagged |
-| **Human control** | Separate approval and execution permissions, assigned approvers, self-approval blocked, atomic decisions under concurrency |
-| **Operable** | HTTPS, structured logs, Prometheus metrics, alerting, provisioned dashboards and verified backup/restore |
-
----
-
-## At a glance
-
-| Layer | Stack |
-| --- | --- |
-| Backend | Python 3.12, FastAPI, Pydantic v2, SQLAlchemy 2, Alembic, Celery |
-| Data | PostgreSQL 16 + pgvector 0.8 (HNSW), Redis 7, SeaweedFS S3 |
-| AI | Ollama (`qwen2.5:7b-instruct`, `bge-m3`, 1024-dim), pluggable OpenAI-compatible provider |
-| Documents | PyMuPDF, python-docx, openpyxl, Tesseract OCR (English + Thai) |
-| Frontend | React 19, TypeScript, Vite, TanStack Query, Recharts |
-| Automation | n8n 2.48 workflows with HMAC-signed events and Redis-backed idempotency |
-| Operations | Docker Compose, nginx TLS, Prometheus, Alertmanager, Grafana, Mailpit |
-| Quality | 137 backend tests, 10 Playwright E2E, 26-case acceptance suite, 16 security checks |
-
----
-
-## Architecture
-
-```mermaid
-flowchart TB
-  B["React SPA"] -->|HTTPS| N["nginx<br/>TLS · SPA · /api"]
-  N --> API["FastAPI<br/>REST · JWT · RBAC"]
-  API --> PG[("PostgreSQL 16<br/>+ pgvector")]
-  API --> RD[("Redis")]
-  API --> S3[("SeaweedFS S3")]
-  API -->|enqueue| RD
-  W["Celery worker"] --> PG
-  W --> S3
-  W -->|local inference| OL["Ollama"]
-  BEAT["Celery beat"] --> RD
-  API -->|SMTP| MP["Mailpit"]
-  API -->|signed outbox| N8N["n8n workflows"]
-  PR["Prometheus"] --> API
-  PR --> AM["Alertmanager"]
-  AM --> MP
-  GF["Grafana"] --> PR
-```
-
-The backend is a modular monolith: each domain owns its models, schemas, services and router, while
-storage, audit, events, notifications and jobs are injected explicitly. Domain events are written in
-the same transaction as the business change (transactional outbox), so an integration failure can
-never roll back a financial decision.
-
-The full set of nine diagrams — backend internals, ERD, AI pipeline, document pipeline, approval
-state machine, auth flow, deployment and backup — lives in
-[`portfolio/ARCHITECTURE_DIAGRAMS.md`](portfolio/ARCHITECTURE_DIAGRAMS.md).
-
----
+It is a v1.0.0 portfolio/demo release. I would not point it at real invoices yet, and the section at
+the bottom explains why.
 
 ## What it does
 
-- **Ingest** PDF, DOCX, XLSX, CSV, TXT and scanned images with MIME/magic/size validation, SHA-256
-  duplicate detection and versioning.
-- **Extract** invoice fields with a deterministic parser; OCR fallback for scans; the LLM is used only
-  when required fields are missing and must quote the source text.
-- **Detect** ten versioned exception rules: duplicates, amount/currency mismatch, vendor mismatch,
-  missing PO, missing documents, tax discrepancy, invalid dates, duplicate vendors, extraction
-  anomalies and integration failures.
-- **Investigate** with hybrid retrieval (keyword + cosine over pgvector) and similar-case memory.
-  Citations are validated; insufficient evidence yields `NEEDS_REVIEW`, not invented confidence.
-- **Resolve** through an allow-listed action registry with risk levels, approval expiry and an
-  execution record per attempt.
-- **Prove** every action with an append-only audit trail, case timeline, analytics from real SQL and
-  exported webhook/workflow history.
+- Uploads PDFs, Word/Excel files, CSVs and scans, with size and file-type checks plus SHA-256
+  duplicate detection.
+- Pulls invoice fields out with a deterministic parser. OCR (Tesseract, English and Thai) handles
+  scans, and the LLM is only a fallback when required fields are missing.
+- Runs ten versioned exception rules: duplicates, amount and currency mismatches, vendor mismatches,
+  missing POs, missing documents, VAT problems, bad dates, duplicate vendors and a couple of others.
+- Keeps cases with SLA dates, assignment history, comments, a timeline and an audit trail.
+- Runs an AI investigation over the case, the invoice and related documents, then checks every
+  citation it produced against real records before showing it to anyone.
+- Turns suggestions into proposals. A proposal can be approved, rejected, or executed if the policy
+  allows it, and execution is idempotent.
 
-### Screenshots
+I also added analytics, in-app notifications, an n8n integration for escalations and daily summaries,
+and provisioned Grafana dashboards. Those are useful, but they are not the reason the project exists.
 
-| AI investigation | Document review |
-| --- | --- |
-| ![AI investigation](portfolio/screenshots/08-ai-investigation.png) | ![Document review](portfolio/screenshots/05-document-review.png) |
+## How it is put together
 
-| Exception queue | Business analytics |
-| --- | --- |
-| ![Exceptions](portfolio/screenshots/06-exceptions.png) | ![Analytics](portfolio/screenshots/10-analytics.png) |
+```mermaid
+flowchart LR
+  UI["React SPA"] --> NG["nginx<br/>TLS + SPA + /api"]
+  NG --> API["FastAPI"]
+  API --> PG[("PostgreSQL + pgvector")]
+  API --> RD[("Redis")]
+  API --> S3[("S3 / SeaweedFS")]
+  API --> W["Celery worker"]
+  W --> PG
+  W --> OL["Ollama"]
+  API --> N8N["n8n"]
+  API --> MAIL["Mailpit / SMTP"]
+  PR["Prometheus"] --> API
+  PR --> GF["Grafana"]
+```
 
-Screenshots are captured from the running system with synthetic demo data. More in
-[`portfolio/screenshots`](portfolio/screenshots).
+It is a modular monolith. I thought about splitting services and decided not to: approvals, money and
+audit all benefit from one transaction boundary, and there is no scaling problem here that justifies
+the extra failure modes. Each domain still has its own models, schemas, service and router, so it
+would not be painful to extract later.
 
----
+Domain events go into an outbox in the same transaction as the business change. Celery beat publishes
+them later. If n8n is down, the event retries and shows up as failed; the invoice or approval that
+caused it is already committed and unaffected.
 
-## Quality gates
+The nine diagrams I used while building it (backend, ERD, AI pipeline, document pipeline, approval
+state machine, auth, deployment, backup) are in
+[portfolio/ARCHITECTURE_DIAGRAMS.md](portfolio/ARCHITECTURE_DIAGRAMS.md).
 
-| Gate | Result |
-| --- | --- |
-| Backend (pytest) | 137 passed, 1 skipped |
-| Frontend | typecheck, 0 lint errors, 6/6 unit tests, production build |
-| Browser E2E | 10/10 over HTTPS |
-| End-to-end workflow | 28 steps: vendor → PO → upload → OCR → exceptions → case → AI → approval → execution → audit |
-| Acceptance (roles + financial edge cases) | 26/26 |
-| Security | 16/16 |
-| n8n contracts | 9/9 |
-| Responsive / console | 24 route/viewport checks, 0 overflow, 0 app console errors |
+## The AI part
 
-Two real defects were found by the acceptance process and fixed: a double-approval race under
-concurrency (now an atomic conditional claim) and a shared Button that broke `asChild` rendering.
-Both have regression coverage. Details: [`portfolio/TESTING_AND_QUALITY.md`](portfolio/TESTING_AND_QUALITY.md).
+The model runs locally through Ollama: `qwen2.5:7b-instruct` for the investigation and `bge-m3` for
+embeddings. Embeddings are 1024 dimensions and stored in pgvector with an HNSW index, so retrieval is
+a SQL query, not another service to operate.
 
----
+Retrieval is hybrid, keyword plus cosine similarity, and similar resolved cases are included because
+"we handled this before" is often the most useful context.
 
-## Getting started
+The part I care about is what happens after the model answers. Every citation has to resolve to a real
+document, page, chunk or case in the same organization. If it does not, it is stored as invalid and
+the investigation can end up as `NEEDS_REVIEW` instead of pretending it is confident. The model has no
+tools and no write access. It cannot approve, execute or change a status.
 
-### Prerequisites
+If no provider is configured, the UI says AI is unavailable. Nothing gets faked.
 
-- Docker Desktop / Docker Engine with Compose v2
-- Optional: [Ollama](https://ollama.com) with `qwen2.5:7b-instruct` and `bge-m3` for local AI
-- Optional: `mkcert` for trusted local HTTPS
+## Approvals, and a bug I only found at the end
 
-### Run with Docker Compose
+Approval is the part I rewrote the most.
+
+The requester cannot decide their own request, the approver has to be the assigned one, and approving
+and executing are separate permissions. Risk levels decide whether a proposal needs approval at all.
+
+During the final test pass I ran two approvals against the same request at the same time. Both
+returned 200. That is exactly the kind of bug that looks fine in a single-user demo and then shows up
+in production.
+
+The original code read the row, checked `PENDING`, changed it through the ORM and inserted a decision.
+Two transactions could both pass that check. The fix was to claim the row with a conditional update:
+
+```python
+update(ApprovalRequest)
+    .where(ApprovalRequest.id == approval.id, ApprovalRequest.status == PENDING)
+    .values(status=new_status, decided_at=now, decided_by_id=actor.id)
+```
+
+If the update touches zero rows, the loser gets a 409 and writes nothing: no decision, no execution,
+no audit entry. There is a regression test for it now, and the live check returns one 200 and one 409.
+
+## What I tested
+
+I tried to be honest about this instead of listing only the happy paths.
+
+- 137 backend tests plus one skipped PostgreSQL-only test.
+- 10 Playwright tests over HTTPS, including permission boundaries and an API failure with retry.
+- A 26-case acceptance run covering duplicates, VAT, currency, partial invoices, low-confidence OCR,
+  corrupt and oversized uploads, duplicate and forged webhooks, concurrent and expired approvals,
+  self-approval, cross-tenant access and retry after a failed document.
+- 16 security checks: cookies, headers, rate limiting, exposed ports, error leakage.
+- A 28-step end-to-end run over HTTPS with real Ollama, real OCR and a real approval to execution.
+- 24 responsive checks (desktop, tablet, mobile) with zero horizontal overflow and zero app console
+  errors.
+
+While capturing screenshots I hit another real bug: the shared Button component passed multiple
+children to Radix `Slot` when `asChild` was set, which crashed the invoice detail page. That is fixed
+and covered by the screenshots and the E2E suite.
+
+What I could not test: macOS/Safari (no Mac here), external SMTP (Mailpit only), a public domain and a
+hardened Linux host. Those are written down in
+[portfolio/KNOWN_LIMITATIONS.md](portfolio/KNOWN_LIMITATIONS.md) rather than hidden.
+
+## Running it
+
+You need Docker with Compose. Ollama is optional.
 
 ```bash
 git clone https://github.com/Mindenry/resolve.git
@@ -154,20 +145,17 @@ cd resolve
 cp .env.example .env
 ```
 
-Fill the blank secrets in `.env`. Compose refuses to start until these are set:
+Fill the blank values. Compose refuses to start until these exist: `POSTGRES_PASSWORD` (and the
+matching `DATABASE_URL`), the S3 keys, `N8N_ENCRYPTION_KEY`, `N8N_WEBHOOK_SECRET`,
+`N8N_OWNER_PASSWORD`, `GRAFANA_PASSWORD`, and the `RESOLVE_AUTOMATION_*` values.
 
-`POSTGRES_PASSWORD` (and the matching `DATABASE_URL`), `S3_ACCESS_KEY`, `S3_SECRET_KEY`,
-`N8N_ENCRYPTION_KEY`, `N8N_WEBHOOK_SECRET`, `N8N_OWNER_PASSWORD`, `GRAFANA_PASSWORD`,
-`RESOLVE_AUTOMATION_EMAIL`, `RESOLVE_AUTOMATION_PASSWORD`, `RESOLVE_AUTOMATION_ORG_ID` and
-`RESOLVE_ORGANIZATION_SLUG`.
-
-Any long random value is fine for local use:
+Generate a secret with:
 
 ```bash
 python -c "import secrets; print(secrets.token_urlsafe(48))"
 ```
 
-Create a local certificate so nginx can serve HTTPS:
+For HTTPS on localhost, mkcert is the least annoying option:
 
 ```bash
 mkcert -install
@@ -175,135 +163,69 @@ mkdir -p var/certs
 mkcert -cert-file var/certs/server.pem -key-file var/certs/server-key.pem localhost 127.0.0.1
 ```
 
-Start the stack (the monitoring profile is optional):
+Then:
 
 ```bash
 docker compose --profile monitoring up -d --build
 ```
 
-Open **https://localhost:8180**. API docs are on `http://127.0.0.1:8100/docs`; supporting UIs are
-bound to loopback only (Mailpit `8125`, n8n `5679`, Prometheus `9190`, Grafana `3101`).
+Open `https://localhost:8180`. Set `SEED_DEMO=true` on the first run if you want the synthetic
+workspace.
 
-The API waits for PostgreSQL, applies Alembic migrations and seeds demo data only when
-`SEED_DEMO=true` and the workspace is empty. Set `SEED_DEMO=true` for the first start if you want the
-synthetic demo workspace. Without an AI provider the product still runs and reports **AI unavailable**
-instead of fabricating results.
-
-### Development mode
+For development with reload and Vite:
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 ```
 
-This runs FastAPI with reload and Vite on `http://localhost:5173`. Native setup instructions are in
-[`docs/DOCKER_DEPLOYMENT.md`](docs/DOCKER_DEPLOYMENT.md).
+That serves the UI on `http://localhost:5173`.
 
-### Demo accounts
+Demo accounts are `admin@example.com` (org admin), `manager@example.com` (operations),
+`investigator@example.com`, `approver@example.com` and `viewer@example.com`. Passwords live in an
+ignored, restricted file created by the provisioning scripts, not in the repo.
 
-| Email | Role |
+## Stack
+
+| Layer | Tools |
 | --- | --- |
-| `admin@example.com` | Organization Admin |
-| `manager@example.com` | Operations Manager |
-| `investigator@example.com` | Investigator |
-| `approver@example.com` | Approver |
-| `viewer@example.com` | Viewer |
+| Backend | Python 3.12, FastAPI, Pydantic v2, SQLAlchemy 2, Alembic, Celery |
+| Data | PostgreSQL 16 + pgvector, Redis, SeaweedFS (S3-compatible) |
+| AI | Ollama, qwen2.5, bge-m3, or any OpenAI-compatible endpoint |
+| Documents | PyMuPDF, python-docx, openpyxl, Tesseract |
+| Frontend | React 19, TypeScript, Vite, TanStack Query, Recharts |
+| Ops | Docker Compose, nginx, Prometheus, Alertmanager, Grafana, Mailpit, n8n |
 
-Passwords are not stored in the repository; they are written to an ignored, access-restricted file by
-the seeding/provisioning scripts. The demo workspace is synthetic — remove or re-key it before real
-data.
-
----
-
-## Configuration
-
-Configuration is environment-only; see [`.env.example`](.env.example) for the full list.
-
-| Area | Variables |
-| --- | --- |
-| Core | `ENV`, `DEBUG`, `SECRET_KEY`, `CORS_ORIGINS`, `FRONTEND_URL` |
-| Data | `DATABASE_URL`, `REDIS_URL`, `S3_*`, `STORAGE_BACKEND` |
-| Security | `ACCESS_TOKEN_TTL_MINUTES`, `REFRESH_TOKEN_TTL_DAYS`, `RATE_LIMIT_*`, `MAX_UPLOAD_MB` |
-| AI | `AI_PROVIDER`, `AI_BASE_URL`, `AI_MODEL`, `AI_EMBEDDING_*` |
-| Documents | `OCR_*`, `PDF_RENDER_DPI`, `MAX_DECOMPRESSED_MB` |
-| Automation | `N8N_BASE_URL`, `N8N_WEBHOOK_SECRET`, `RESOLVE_AUTOMATION_*` |
-
-`AI_PROVIDER=stub` exists only for automated tests and is labelled as such in the UI and metrics.
-
----
-
-## Project structure
+## Where things live
 
 ```text
-apps/
-  api/            FastAPI application, domain modules, workers, migrations, tests
-  web/            React SPA, design system, Playwright and Vitest suites
-infrastructure/
-  docker/         nginx and container entrypoints
-  monitoring/     Prometheus, Alertmanager, Grafana provisioning and dashboards
-  n8n/workflows/  Importable RESOLVE workflows
-docs/             Runbooks, deployment, security, backup/restore, closure report
-portfolio/        Project narrative, architecture, demo script, interview Q&A, screenshots
-scripts/          Provisioning, verification and operational helpers
-datasets/         Evaluation datasets
+apps/api            FastAPI app, domain modules, workers, migrations, tests
+apps/web            React app, design system, Playwright and Vitest
+infrastructure      nginx, monitoring config, n8n workflows
+docs                runbooks and the closure report
+portfolio           the longer write-up, diagrams, demo script, screenshots
+scripts             provisioning and verification helpers
 ```
 
----
+If you only read one other document, make it
+[portfolio/PROJECT_OVERVIEW.md](portfolio/PROJECT_OVERVIEW.md). The short version is also in
+[portfolio/TECHNICAL_ARCHITECTURE.md](portfolio/TECHNICAL_ARCHITECTURE.md) and the demo walkthrough is
+in [portfolio/DEMO_SCRIPT.md](portfolio/DEMO_SCRIPT.md).
 
-## Documentation
+## Rough edges
 
-| Document | Contents |
-| --- | --- |
-| [`portfolio/PROJECT_OVERVIEW.md`](portfolio/PROJECT_OVERVIEW.md) | Problem, users, outcomes, verified scope |
-| [`portfolio/TECHNICAL_ARCHITECTURE.md`](portfolio/TECHNICAL_ARCHITECTURE.md) | Architecture and design decisions |
-| [`portfolio/DATABASE_DESIGN.md`](portfolio/DATABASE_DESIGN.md) | Schema, tenancy, money, vectors |
-| [`portfolio/AI_ARCHITECTURE.md`](portfolio/AI_ARCHITECTURE.md) | Retrieval, prompting, citation validation |
-| [`portfolio/SECURITY_DESIGN.md`](portfolio/SECURITY_DESIGN.md) | AuthN/AuthZ, tenancy, approvals, secrets |
-| [`portfolio/TESTING_AND_QUALITY.md`](portfolio/TESTING_AND_QUALITY.md) | Test strategy and evidence |
-| [`portfolio/DEMO_SCRIPT.md`](portfolio/DEMO_SCRIPT.md) | 5–10 minute walkthrough |
-| [`docs/HTTPS_LAN_SETUP.md`](docs/HTTPS_LAN_SETUP.md) | TLS and client trust |
-| [`docs/OPERATIONS_RUNBOOK.md`](docs/OPERATIONS_RUNBOOK.md) | Start/stop, health, recovery |
-| [`docs/BACKUP_RESTORE_RUNBOOK.md`](docs/BACKUP_RESTORE_RUNBOOK.md) | Verified backup and isolated restore |
-| [`docs/N8N_RESOLVE_AUTOMATION.md`](docs/N8N_RESOLVE_AUTOMATION.md) | Workflows, HMAC, idempotency |
-| [`docs/OBSERVABILITY_RUNBOOK.md`](docs/OBSERVABILITY_RUNBOOK.md) | Metrics, dashboards, alerts |
-| [`docs/FINAL_PROJECT_CLOSURE_REPORT.md`](docs/FINAL_PROJECT_CLOSURE_REPORT.md) | Final acceptance evidence |
+The demo workspace still has synthetic data and accounts. Delete or re-key them before using this with
+real invoices.
 
----
+It runs on a single node. PostgreSQL, Redis and object storage are not replicated. Docker Desktop on
+Windows is not a production runtime, and the rate limiter shares one bucket per published port because
+of how Docker rewrites client addresses on this setup.
 
-## Security posture
+There is no malware scanning on uploads, no SSO, and no independent penetration test.
 
-- Argon2id passwords, short-lived JWTs, rotating refresh tokens with reuse detection, secure cookies.
-- 47 permissions across six roles; organization scoping enforced in every service; foreign identifiers
-  return 404.
-- Self-approval blocked; approval and execution are separate permissions; decisions are atomic under
-  concurrency.
-- HMAC-signed webhooks with idempotency keys; the n8n service account is read-only.
-- Upload type/size/ZIP guards, parameterized SQL, generic error envelopes, rate limiting.
-- One LAN port; all management UIs and data services are loopback or Docker-internal.
-
-Known gaps — including the absence of a physical macOS test, external SMTP, malware scanning and a
-hardened Linux production host — are documented honestly in
-[`portfolio/KNOWN_LIMITATIONS.md`](portfolio/KNOWN_LIMITATIONS.md).
-
----
-
-## Testing
-
-```bash
-# Backend
-cd apps/api && python -m pytest
-
-# Frontend
-cd apps/web && npm ci && npm run typecheck && npm run lint && npm run test -- --run && npm run build
-
-# Browser E2E (set the deployment URL and demo password in the environment)
-cd apps/web && npx playwright test
-```
-
-CI runs backend, frontend, infrastructure and security workflows on every push to `main` and on pull
-requests.
-
----
+None of that is hidden in the code; it is documented in
+[portfolio/KNOWN_LIMITATIONS.md](portfolio/KNOWN_LIMITATIONS.md), along with what I would do before
+letting it near real money.
 
 ## License
 
-MIT — see [LICENSE](LICENSE). The repository contains synthetic demo data only.
+MIT. See [LICENSE](LICENSE).
