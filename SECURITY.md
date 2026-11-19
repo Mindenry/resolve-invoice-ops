@@ -16,7 +16,7 @@ Never include real credentials, customer documents or personal data in a report.
 ## Supported versions
 
 The current release is `v1.0.0` (release candidate for controlled evaluation). Security fixes are
-applied to the current `master` line; there are no maintained backport branches yet.
+applied to the current `main` line; there are no maintained backport branches yet.
 
 ## Implemented controls (summary)
 

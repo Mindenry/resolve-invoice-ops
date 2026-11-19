@@ -20,7 +20,7 @@ Current baseline: **1.0.0** (tag `v1.0.0`).
 
 ## 2. Repository layout and identity
 
-* Branch: `master` (single-branch pre-release line).
+* Branch: `main` (single-branch release line).
 * The repository-local Git identity is `RESOLVE Project <resolve@localhost>`. It is a technical
   identity for this workstation and does not impersonate a person. Global Git config is untouched.
 * No remote is configured. Pushing requires explicit owner approval.
