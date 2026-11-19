@@ -295,3 +295,47 @@ def test_outbound_webhook_uses_integration_signing_secret(monkeypatch, db, org) 
     assert result["published"] == 1
     expected = hmac.new(b"per-integration-secret", captured["content"], hashlib.sha256).hexdigest()
     assert captured["headers"]["X-Resolve-Signature"] == expected
+
+def test_n8n_connection_uses_health_without_api_key(monkeypatch, db, org) -> None:
+    """Webhook-only n8n setups have no public API key; the probe must not fail with 401."""
+    integration = Integration(
+        org_id=org.org.id,
+        name="n8n webhook mode",
+        kind=IntegrationKind.N8N,
+        is_enabled=True,
+        config={"base_url": "http://n8n:5678", "webhook_url": "http://n8n:5678/webhook/resolve/test"},
+        event_filter=[],
+    )
+    db.add(integration)
+    db.commit()
+
+    calls: list[str] = []
+
+    class FakeResponse:
+        status_code = 200
+        text = "ok"
+
+    class FakeClient:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def get(self, url, **kwargs):
+            calls.append(url)
+            return FakeResponse()
+
+    monkeypatch.setattr(integration_service.httpx, "Client", FakeClient)
+    monkeypatch.setattr(integration_service.settings, "N8N_API_KEY", "")
+
+    result = integration_service.test_connection(
+        db, org_id=org.org.id, integration_id=integration.id
+    )
+
+    assert result["ok"] is True
+    assert result["status"] == "CONNECTED"
+    assert calls and calls[0].endswith("/healthz")

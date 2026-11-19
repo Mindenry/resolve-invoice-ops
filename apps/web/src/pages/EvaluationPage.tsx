@@ -80,13 +80,20 @@ export function EvaluationPage() {
     queryKey: ["evaluation", "run", selected],
     queryFn: () => api.get<EvaluationRun>(`/evaluation/runs/${selected}`),
     enabled: Boolean(selected),
+    refetchInterval: (query) =>
+      ["QUEUED", "RUNNING"].includes(query.state.data?.status ?? "") ? 3000 : false,
   });
 
   const createRun = useMutation({
-    mutationFn: () => api.post("/evaluation/runs", { dataset_id: datasetId, name: runName || `Run ${new Date().toISOString().slice(0, 16)}` }),
-    onSuccess: () => {
+    mutationFn: () =>
+      api.post<EvaluationRun>("/evaluation/runs", {
+        dataset_id: datasetId,
+        name: runName || `Run ${new Date().toISOString().slice(0, 16)}`,
+      }),
+    onSuccess: (run) => {
       setRunOpen(false);
       setRunName("");
+      setSelected(run.id);
       void queryClient.invalidateQueries({ queryKey: ["evaluation"] });
       toast.success("Evaluation run queued");
     },

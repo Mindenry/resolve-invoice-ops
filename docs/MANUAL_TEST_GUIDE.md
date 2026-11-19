@@ -177,6 +177,32 @@ The acceptance suite creates a batch of synthetic records; that is expected.
 
 ---
 
+
+### Git Bash / WSL note
+
+The snippets above use PowerShell. In Git Bash, `python`, `$env:...` and backslash paths behave
+differently. Use the venv interpreter and exported variables:
+
+```bash
+cd apps/api
+../../.venv/Scripts/python.exe -m pytest
+
+cd ../web
+npm run typecheck && npm run lint && npm run test -- --run && npm run build
+
+export RESOLVE_WEB_URL="https://localhost:8180"
+export RESOLVE_DEMO_PASSWORD="$(sed -n 's/^admin@example.com=//p' ../../var/secrets/demo-credentials.txt)"
+export NODE_EXTRA_CA_CERTS="$(pwd)/../../var/certs/rootCA.pem"
+npx playwright test
+
+cd ../..
+./.venv/Scripts/python.exe scripts/final-acceptance.py
+./.venv/Scripts/python.exe scripts/verify-security.py
+```
+
+If `python -m pytest` reports "No module named pytest", the shell is using the system Python instead
+of the project venv. That is the most common cause of a failed test run on this machine.
+
 ## 7. What counts as a pass
 
 - Every checklist item above behaves as described.

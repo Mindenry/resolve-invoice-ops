@@ -266,12 +266,26 @@ def test_connection(db: Session, *, org_id: uuid.UUID, integration_id: uuid.UUID
                     detail = "n8n base_url is not configured."
                 else:
                     _validate_http_url(base_url)
-                    api_key = _resolve_secret(db, integration, "api_key")
-                    headers = {"X-N8N-API-KEY": api_key} if api_key and settings.N8N_API_KEY else {}
+                    api_key = get_credential(db, integration, "api_key") or settings.N8N_API_KEY
                     with httpx.Client(timeout=8.0) as client:
-                        response = client.get(f"{base_url}/api/v1/workflows", headers=headers, params={"limit": 1})
-                    ok = response.status_code < 400
-                    detail = f"n8n responded HTTP {response.status_code}"
+                        if api_key:
+                            response = client.get(
+                                f"{base_url}/api/v1/workflows",
+                                headers={"X-N8N-API-KEY": api_key},
+                                params={"limit": 1},
+                            )
+                            ok = response.status_code < 400
+                            detail = f"n8n API responded HTTP {response.status_code}"
+                        else:
+                            # Webhook-only setups have no public API key. Test the
+                            # unauthenticated health endpoint instead of guessing:
+                            # the public API would always return 401 here.
+                            response = client.get(f"{base_url}/healthz")
+                            ok = response.status_code < 400
+                            detail = (
+                                f"n8n health responded HTTP {response.status_code} "
+                                "(webhook mode, no API key)"
+                            )
             else:
                 url = str(integration.config.get("webhook_url") or integration.config.get("base_url") or "")
                 if not url:
