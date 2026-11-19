@@ -1,6 +1,9 @@
 # RESOLVE
 
-[![CI](https://github.com/Mindenry/resolve/actions/workflows/ci.yml/badge.svg)](https://github.com/Mindenry/resolve/actions/workflows/ci.yml)
+[![Backend](https://github.com/Mindenry/resolve/actions/workflows/backend.yml/badge.svg)](https://github.com/Mindenry/resolve/actions/workflows/backend.yml)
+[![Frontend](https://github.com/Mindenry/resolve/actions/workflows/frontend.yml/badge.svg)](https://github.com/Mindenry/resolve/actions/workflows/frontend.yml)
+[![Infrastructure](https://github.com/Mindenry/resolve/actions/workflows/infrastructure.yml/badge.svg)](https://github.com/Mindenry/resolve/actions/workflows/infrastructure.yml)
+[![Security](https://github.com/Mindenry/resolve/actions/workflows/security.yml/badge.svg)](https://github.com/Mindenry/resolve/actions/workflows/security.yml)
 [![Release](https://img.shields.io/github/v/tag/Mindenry/resolve?label=release)](https://github.com/Mindenry/resolve/tags)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 

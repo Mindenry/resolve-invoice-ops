@@ -19,6 +19,18 @@ on:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    env:
+      POSTGRES_PASSWORD: ci-only-db-password
+      S3_ACCESS_KEY: ci-only-s3-key
+      S3_SECRET_KEY: ci-only-s3-secret
+      N8N_ENCRYPTION_KEY: ci-only-encryption-key
+      N8N_WEBHOOK_SECRET: ci-only-webhook-secret
+      N8N_OWNER_PASSWORD: ci-only-owner-password
+      RESOLVE_AUTOMATION_EMAIL: ci@example.com
+      RESOLVE_AUTOMATION_PASSWORD: ci-only-automation-password
+      RESOLVE_AUTOMATION_ORG_ID: 00000000-0000-0000-0000-000000000000
+      RESOLVE_ORGANIZATION_SLUG: northwind
+      GRAFANA_PASSWORD: ci-only-grafana-password
     steps:
       - uses: actions/checkout@v4
       - name: Prepare environment

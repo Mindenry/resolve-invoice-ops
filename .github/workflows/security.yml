@@ -1,0 +1,53 @@
+name: Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  secret-scan:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Fail on obvious credentials
+        run: |
+          set -euo pipefail
+          pattern='AKIA[0-9A-Z]{16}|-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----|gh[pousr]_[A-Za-z0-9]{20,}|sk-[A-Za-z0-9]{24,}'
+          if git grep -nIE "$pattern" -- . ; then
+            echo "Potential credential found; rotate it and remove it from history."
+            exit 1
+          fi
+          echo "No obvious credentials found."
+      - name: Sensitive paths must stay ignored
+        run: |
+          set -euo pipefail
+          for path in .env var/certs/server-key.pem backups; do
+            if git ls-files --error-unmatch "$path" >/dev/null 2>&1; then
+              echo "$path must not be tracked"
+              exit 1
+            fi
+          done
+          echo "Sensitive paths are not tracked."
+
+  docs:
+    name: Documentation links
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check relative Markdown links
+        run: python scripts/check-doc-links.py
